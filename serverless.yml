@@ -1,0 +1,85 @@
+# org/app are set once the Serverless dashboard login is done (`npx serverless login`).
+# org: <org>
+# app: backend
+service: Glow-Stone-backend
+
+useDotenv: true
+
+build:
+  esbuild:
+    bundle: true
+    minify: false
+    sourcemap: true
+    external:
+      - pg-native
+
+custom:
+  # Shared VPC config for every DB-touching Lambda. Fill in once RDS is created;
+  # the RDS security group must allow this security group inbound on port 5432.
+  # vpc: &vpc
+  #   securityGroupIds:
+  #     - sg-xxxxxxxx
+  #   subnetIds:
+  #     - subnet-xxxxxxxx
+  #     - subnet-xxxxxxxx
+
+provider:
+  name: aws
+  runtime: nodejs24.x
+  region: ${env:AWS_REGION, 'eu-west-3'}
+  stage: ${opt:stage, 'dev'}
+  profile: glow-stone
+  iam:
+    role:
+      statements:
+        # Required for Lambdas that run inside a VPC.
+        - Effect: Allow
+          Action:
+            - ec2:CreateNetworkInterface
+            - ec2:DescribeNetworkInterfaces
+            - ec2:DeleteNetworkInterface
+          Resource: "*"
+  environment:
+    NODE_EXTRA_CA_CERTS: /var/runtime/ca-cert.pem
+    DB_HOST: ${env:DB_HOST}
+    DB_USER: ${env:DB_USER}
+    DB_PASSWORD: ${env:DB_PASSWORD}
+    DB_NAME: ${env:DB_NAME}
+    DB_PORT: ${env:DB_PORT}
+    COGNITO_USER_POOL_ID: ${env:COGNITO_USER_POOL_ID}
+    COGNITO_APP_CLIENT_ID: ${env:COGNITO_APP_CLIENT_ID}
+  httpApi:
+    cors:
+      allowedOrigins:
+        - http://localhost:5173
+        - http://127.0.0.1:5173
+        # add the Vercel URL here once the frontend is deployed
+      allowedHeaders:
+        - Content-Type
+        - Authorization
+      allowedMethods:
+        - GET
+        - POST
+        - PUT
+        - PATCH
+        - DELETE
+        - OPTIONS
+      allowCredentials: true
+      maxAge: 86400
+    payload: "2.0"
+    authorizers:
+      cognitoAuthorizer:
+        type: jwt
+        identitySource: $request.header.Authorization
+        issuerUrl: https://cognito-idp.${self:provider.region}.amazonaws.com/${env:COGNITO_USER_POOL_ID}
+        audience:
+          - ${env:COGNITO_APP_CLIENT_ID}
+
+functions:
+  # No VPC — keeps the health check's cold start fast.
+  health:
+    handler: src/controllers/healthController.health
+    events:
+      - httpApi:
+          path: /
+          method: GET

@@ -1,0 +1,8 @@
+node_modules
+.serverless
+.env
+.env.*
+!.env.example
+dist
+.esbuild
+/local
