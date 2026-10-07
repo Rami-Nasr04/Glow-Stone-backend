@@ -1,6 +1,5 @@
-# org/app are set once the Serverless dashboard login is done (`npx serverless login`).
-# org: <org>
-# app: backend
+org: glowstone
+app: glowstone
 service: Glow-Stone-backend
 
 useDotenv: true
@@ -14,19 +13,20 @@ build:
       - pg-native
 
 custom:
-  # Shared VPC config for every DB-touching Lambda. Fill in once RDS is created;
-  # the RDS security group must allow this security group inbound on port 5432.
-  # vpc: &vpc
-  #   securityGroupIds:
-  #     - sg-xxxxxxxx
-  #   subnetIds:
-  #     - subnet-xxxxxxxx
-  #     - subnet-xxxxxxxx
+  # Shared VPC config for every DB-touching Lambda: `vpc: ${self:custom.vpc}`.
+  # The RDS security group accepts this security group inbound on port 5432.
+  vpc:
+    securityGroupIds:
+      - ${env:LAMBDA_SECURITY_GROUP_ID}
+    subnetIds:
+      - ${env:SUBNET_A}
+      - ${env:SUBNET_B}
+      - ${env:SUBNET_C}
 
 provider:
   name: aws
   runtime: nodejs24.x
-  region: ${env:AWS_REGION, 'eu-west-3'}
+  region: ${env:AWS_REGION, 'eu-central-1'}
   stage: ${opt:stage, 'dev'}
   profile: glow-stone
   iam:
@@ -46,8 +46,6 @@ provider:
     DB_PASSWORD: ${env:DB_PASSWORD}
     DB_NAME: ${env:DB_NAME}
     DB_PORT: ${env:DB_PORT}
-    COGNITO_USER_POOL_ID: ${env:COGNITO_USER_POOL_ID}
-    COGNITO_APP_CLIENT_ID: ${env:COGNITO_APP_CLIENT_ID}
   httpApi:
     cors:
       allowedOrigins:
@@ -67,13 +65,7 @@ provider:
       allowCredentials: true
       maxAge: 86400
     payload: "2.0"
-    authorizers:
-      cognitoAuthorizer:
-        type: jwt
-        identitySource: $request.header.Authorization
-        issuerUrl: https://cognito-idp.${self:provider.region}.amazonaws.com/${env:COGNITO_USER_POOL_ID}
-        audience:
-          - ${env:COGNITO_APP_CLIENT_ID}
+    # The Cognito JWT authorizers (customer pool, admin pool) come back with the user pools.
 
 functions:
   # No VPC — keeps the health check's cold start fast.
