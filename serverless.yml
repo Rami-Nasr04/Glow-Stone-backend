@@ -75,3 +75,19 @@ functions:
       - httpApi:
           path: /
           method: GET
+
+  listProducts:
+    handler: src/controllers/productController.list
+    vpc: ${self:custom.vpc}
+    events:
+      - httpApi:
+          path: /products
+          method: GET
+
+  getProduct:
+    handler: src/controllers/productController.get
+    vpc: ${self:custom.vpc}
+    events:
+      - httpApi:
+          path: /products/{id}
+          method: GET
