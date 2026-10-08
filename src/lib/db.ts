@@ -14,7 +14,7 @@ const pool = new Pool({
   database: config.db.database,
   port: config.db.port,
   // Verifies the RDS certificate. Lambda trusts the RDS CA via NODE_EXTRA_CA_CERTS (serverless.yml).
-  ssl: { rejectUnauthorized: true },
+  ssl: config.db.ssl ? { rejectUnauthorized: true } : false,
   max: 2,
   idleTimeoutMillis: 10_000,
   connectionTimeoutMillis: 20_000,

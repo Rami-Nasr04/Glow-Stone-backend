@@ -13,5 +13,7 @@ export const config = {
     password: required("DB_PASSWORD"),
     database: required("DB_NAME"),
     port: Number(required("DB_PORT")),
+    // TLS is on everywhere except the local test database (DB_SSL=false).
+    ssl: process.env.DB_SSL !== "false",
   },
 }
