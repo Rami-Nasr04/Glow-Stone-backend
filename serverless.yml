@@ -11,6 +11,13 @@ build:
     sourcemap: true
     external:
       - pg-native
+      # Native module: not bundled; the resizer loads the Linux build from its layer (npm run build:sharp-layer).
+      - sharp
+
+# Externals get installed into the zip; drop them so the Windows build of sharp never ships (the layer provides it).
+package:
+  patterns:
+    - "!node_modules/**"
 
 custom:
   # Shared VPC config for every DB-touching Lambda: `vpc: ${self:custom.vpc}`.
@@ -39,6 +46,14 @@ provider:
             - ec2:DescribeNetworkInterfaces
             - ec2:DeleteNetworkInterface
           Resource: "*"
+        # The image resizer reads the photo masters; nothing can write or delete through this role.
+        - Effect: Allow
+          Action: s3:GetObject
+          Resource: arn:aws:s3:::${env:IMAGES_BUCKET}/products/*
+        # Lets S3 answer "not found" (404) instead of AccessDenied for a missing photo.
+        - Effect: Allow
+          Action: s3:ListBucket
+          Resource: arn:aws:s3:::${env:IMAGES_BUCKET}
   environment:
     NODE_EXTRA_CA_CERTS: /var/runtime/ca-cert.pem
     DB_HOST: ${env:DB_HOST}
@@ -67,6 +82,15 @@ provider:
     payload: "2.0"
     # The Cognito JWT authorizers (customer pool, admin pool) come back with the user pools.
 
+layers:
+  # sharp built for the Lambda's Linux arm64, by `npm run build:sharp-layer` (the folder is gitignored).
+  sharp:
+    path: layers/sharp
+    compatibleRuntimes:
+      - nodejs24.x
+    compatibleArchitectures:
+      - arm64
+
 functions:
   # No VPC — keeps the health check's cold start fast.
   health:
@@ -91,3 +115,15 @@ functions:
       - httpApi:
           path: /products/{id}
           method: GET
+
+  # Image resizer behind CloudFront: a Function URL (auth AWS_IAM) that only CloudFront may call, set up in the console.
+  # No VPC: it only reads S3. Add `reservedConcurrency: 10` once the account's Lambda limit is raised from 10.
+  resizeImage:
+    handler: src/controllers/imageController.resize
+    architecture: arm64
+    memorySize: 1536
+    timeout: 15
+    layers:
+      - Ref: SharpLambdaLayer
+    environment:
+      IMAGES_BUCKET: ${env:IMAGES_BUCKET}
