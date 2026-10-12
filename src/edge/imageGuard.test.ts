@@ -31,7 +31,7 @@ describe("CloudFront image guard", () => {
   })
 
   it("uses the same widths and path rule as the resizer", () => {
-    expect(code).toContain(IMAGE_WIDTHS.map((w) => `"${w}": true`).join(", "))
+    expect(code).toContain(`const WIDTHS = ${JSON.stringify(IMAGE_WIDTHS.map(String))}`)
     expect(code).toContain(`/${IMAGE_PATH.source}/`)
   })
 
@@ -39,6 +39,10 @@ describe("CloudFront image guard", () => {
     expect(request(PHOTO)).toEqual({ statusCode: 400, statusDescription: "Bad Request" })
     expect(request(PHOTO, { w: { value: "961" } })).toMatchObject({ statusCode: 400 })
     expect(request(PHOTO, { w: { value: "0960" } })).toMatchObject({ statusCode: 400 })
+    // Names every JavaScript object has; a plain-object lookup would let them through.
+    for (const value of ["constructor", "toString", "__proto__", "hasOwnProperty", "valueOf"]) {
+      expect(request(PHOTO, { w: { value } })).toMatchObject({ statusCode: 400 })
+    }
     expect(request(PHOTO, { w: { value: "480", multiValue: [{ value: "480" }, { value: "960" }] } })).toMatchObject({
       statusCode: 400,
     })
