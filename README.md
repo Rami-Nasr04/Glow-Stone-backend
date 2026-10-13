@@ -7,8 +7,10 @@ Serverless Framework v4 · AWS Lambda · API Gateway (HTTP API) · RDS PostgreSQ
 
 ```bash
 npm install
-cp .env.example .env   # fill in the values
+npm run build:sharp-layer   # the image resizer's sharp, built for Lambda (Linux arm64)
 ```
+
+Create a `.env` with every `${env:…}` value that `serverless.yml` reads.
 
 ## Scripts
 
@@ -16,6 +18,7 @@ cp .env.example .env   # fill in the values
 | --- | --- |
 | `npm run typecheck` | TypeScript check |
 | `npm test` | Unit tests (Vitest) |
+| `npm run build:sharp-layer` | Build the sharp layer the image resizer needs (run once before the first deploy) |
 | `npm run package` | Build the deployment package without deploying |
 | `npm run deploy` | Deploy to the `dev` stage |
 | `npm run deploy:prod` | Deploy to the `prod` stage |

@@ -66,6 +66,9 @@ provider:
       allowedOrigins:
         - http://localhost:5173
         - http://127.0.0.1:5173
+        # vite preview of the built site
+        - http://localhost:4173
+        - http://127.0.0.1:4173
         # add the Vercel URL here once the frontend is deployed
       allowedHeaders:
         - Content-Type
