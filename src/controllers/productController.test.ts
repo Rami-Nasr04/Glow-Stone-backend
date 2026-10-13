@@ -24,6 +24,7 @@ const product: Product = {
   featured: true,
   summary: "Tall slab.",
   createdAt: "2026-10-03T09:00:00.000Z",
+  images: [{ url: "https://cdn.test/products/3/k7f2q9ab12cd", width: 2048, height: 3072 }],
   story: null,
 }
 
