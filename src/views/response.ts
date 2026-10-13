@@ -47,7 +47,13 @@ const PG_ERROR_MAP: Record<string, MappedError> = {
   "53300": { code: "BUSY", message: "System is busy — please retry in a moment", status: 503 },
 }
 
-function isPgError(err: unknown): err is { code: string } {
+// Database rules whose own message is clearer than the generic one for their error code.
+const PG_CONSTRAINT_MAP: Record<string, MappedError> = {
+  remaining_within_edition: { code: "VALIDATION", message: "remaining can't be more than editionSize", status: 400 },
+  products_published_name_unique: { code: "CONFLICT", message: "A published piece already has that name", status: 409 },
+}
+
+function isPgError(err: unknown): err is { code: string; constraint?: string } {
   return typeof err === "object" && err !== null && "code" in err && typeof err.code === "string"
 }
 
@@ -61,6 +67,10 @@ export function handleError(err: unknown): APIGatewayProxyStructuredResultV2 {
   if (err instanceof NotFoundError) return fail("NOT_FOUND", err.message, 404)
   if (err instanceof Error && err.name in COGNITO_ERROR_MAP) {
     const m = COGNITO_ERROR_MAP[err.name]
+    return fail(m.code, m.message, m.status)
+  }
+  if (isPgError(err) && err.constraint && err.constraint in PG_CONSTRAINT_MAP) {
+    const m = PG_CONSTRAINT_MAP[err.constraint]
     return fail(m.code, m.message, m.status)
   }
   if (isPgError(err) && err.code in PG_ERROR_MAP) {

@@ -64,6 +64,21 @@ describe("handleError()", () => {
     expect(body(r).error.code).toBe("CONFLICT")
   })
 
+  it.each([
+    ["23514", "remaining_within_edition", 400, "VALIDATION", "remaining can't be more than editionSize"],
+    ["23505", "products_published_name_unique", 409, "CONFLICT", "A published piece already has that name"],
+  ])("names the database rule %s %s", (code, constraint, status, errorCode, message) => {
+    const r = handleError({ code, constraint })
+    expect(r.statusCode).toBe(status)
+    expect(body(r).error).toEqual({ code: errorCode, message })
+  })
+
+  it("keeps the generic message for other constraints", () => {
+    expect(body(handleError({ code: "23505", constraint: "something_else" })).error.message).toBe(
+      "A record with that unique value already exists",
+    )
+  })
+
   it("falls back to 500 INTERNAL for unknown errors", () => {
     const spy = vi.spyOn(console, "error").mockImplementation(() => {})
     const r = handleError(new Error("boom"))
