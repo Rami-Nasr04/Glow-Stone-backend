@@ -8,5 +8,3 @@ export interface ApiResponse<T> {
   data?: T
   error?: ApiError
 }
-
-export type UserRole = "admin" | "customer"
