@@ -117,12 +117,14 @@ functions:
           method: GET
 
   # Image resizer behind CloudFront: a Function URL (auth AWS_IAM) that only CloudFront may call, set up in the console.
-  # No VPC: it only reads S3. Add `reservedConcurrency: 10` once the account's Lambda limit is raised from 10.
+  # No VPC: it only reads S3. At most 10 at once, so a flood of made-up photo names can't run up the bill
+  # or take capacity from the API. Extra requests get a "too busy" error instead; cached photos are unaffected.
   resizeImage:
     handler: src/controllers/imageController.resize
     architecture: arm64
     memorySize: 1536
     timeout: 15
+    reservedConcurrency: 10
     layers:
       - Ref: SharpLambdaLayer
     environment:
