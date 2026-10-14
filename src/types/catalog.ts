@@ -33,3 +33,9 @@ export interface Product extends ProductSummary {
   /** Paragraphs separated by a blank line. */
   story: string | null
 }
+
+// What the studio reads: every piece, drafts included.
+export interface AdminProduct extends Product {
+  status: "draft" | "published"
+  updatedAt: string
+}

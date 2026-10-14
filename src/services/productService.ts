@@ -5,9 +5,9 @@ import type { ProductRow } from "../models/productModel"
 import { findPublishedProductById, findPublishedProducts } from "../models/productModel"
 import type { Product, ProductImage, ProductSummary } from "../types/catalog"
 
-const LIST_IMAGES_PER_PRODUCT = 2 // cover + hover on the collection card
+export const LIST_IMAGES_PER_PRODUCT = 2 // cover + hover on the collection card
 
-function imagesByProduct(rows: ProductImageRow[]): Map<number, ProductImage[]> {
+export function imagesByProduct(rows: ProductImageRow[]): Map<number, ProductImage[]> {
   const grouped = new Map<number, ProductImage[]>()
   for (const { product_id, url, width, height } of rows) {
     grouped.set(product_id, [...(grouped.get(product_id) ?? []), { url, width, height }])
@@ -15,7 +15,7 @@ function imagesByProduct(rows: ProductImageRow[]): Map<number, ProductImage[]> {
   return grouped
 }
 
-function toSummary(row: ProductRow, images: ProductImage[]): ProductSummary {
+export function toSummary(row: ProductRow, images: ProductImage[]): ProductSummary {
   return {
     id: row.id,
     name: row.name,
