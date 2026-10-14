@@ -61,6 +61,9 @@ provider:
     DB_PASSWORD: ${env:DB_PASSWORD}
     DB_NAME: ${env:DB_NAME}
     DB_PORT: ${env:DB_PORT}
+    # The admin pool and the studio's app client (not secrets): the admin routes check every token against them.
+    ADMIN_USER_POOL_ID: ${env:ADMIN_USER_POOL_ID}
+    ADMIN_APP_CLIENT_ID: ${env:ADMIN_APP_CLIENT_ID}
   httpApi:
     cors:
       allowedOrigins:
@@ -69,7 +72,8 @@ provider:
         # vite preview of the built site
         - http://localhost:4173
         - http://127.0.0.1:4173
-        # add the Vercel URL here once the frontend is deployed
+        # the website on Vercel (Milestone 1)
+        - https://glow-stone-frontend.vercel.app
       allowedHeaders:
         - Content-Type
         - Authorization
@@ -83,7 +87,14 @@ provider:
       allowCredentials: true
       maxAge: 86400
     payload: "2.0"
-    # The Cognito JWT authorizers (customer pool, admin pool) come back with the user pools.
+    authorizers:
+      # Lets through only tokens from the admin pool issued to the studio's app client (checked before any code runs).
+      adminAuthorizer:
+        type: jwt
+        identitySource: $request.header.Authorization
+        issuerUrl: https://cognito-idp.${self:provider.region}.amazonaws.com/${env:ADMIN_USER_POOL_ID}
+        audience:
+          - ${env:ADMIN_APP_CLIENT_ID}
 
 layers:
   # sharp built for the Lambda's Linux arm64, by `npm run build:sharp-layer` (the folder is gitignored).
@@ -118,6 +129,46 @@ functions:
       - httpApi:
           path: /products/{id}
           method: GET
+
+  adminListProducts:
+    handler: src/controllers/adminProductController.list
+    vpc: ${self:custom.vpc}
+    events:
+      - httpApi:
+          path: /admin/products
+          method: GET
+          authorizer:
+            name: adminAuthorizer
+
+  adminGetProduct:
+    handler: src/controllers/adminProductController.get
+    vpc: ${self:custom.vpc}
+    events:
+      - httpApi:
+          path: /admin/products/{id}
+          method: GET
+          authorizer:
+            name: adminAuthorizer
+
+  adminCreateProduct:
+    handler: src/controllers/adminProductController.create
+    vpc: ${self:custom.vpc}
+    events:
+      - httpApi:
+          path: /admin/products
+          method: POST
+          authorizer:
+            name: adminAuthorizer
+
+  adminUpdateProduct:
+    handler: src/controllers/adminProductController.update
+    vpc: ${self:custom.vpc}
+    events:
+      - httpApi:
+          path: /admin/products/{id}
+          method: PATCH
+          authorizer:
+            name: adminAuthorizer
 
   # Image resizer behind CloudFront: a Function URL (auth AWS_IAM) that only CloudFront may call, set up in the console.
   # No VPC: it only reads S3. At most 10 at once, so a flood of made-up photo names can't run up the bill
