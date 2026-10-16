@@ -1,4 +1,4 @@
-import { Pool, types, type QueryResultRow } from "pg"
+import { Pool, types, type PoolClient, type QueryResultRow } from "pg"
 import { config } from "./config"
 
 // Postgres numeric (OID 1700) returns as a string by default — coerce to a JS number.
@@ -48,5 +48,29 @@ export const executeQuery = async <T extends QueryResultRow = Record<string, unk
   }
 }
 
-// Exposed for transactions: const client = await pool.connect(); BEGIN / COMMIT / ROLLBACK.
+/**
+ * Run work in one transaction on one connection: commit if it returns, roll back if it throws (then rethrow).
+ * A connection whose rollback failed is thrown away instead of going back to the pool.
+ */
+export async function withTransaction<T>(work: (client: PoolClient) => Promise<T>): Promise<T> {
+  const client = await pool.connect()
+  let broken = false
+  try {
+    await client.query("begin")
+    const result = await work(client)
+    await client.query("commit")
+    return result
+  } catch (err) {
+    try {
+      await client.query("rollback")
+    } catch (rollbackErr) {
+      console.error("Rollback failed:", rollbackErr)
+      broken = true
+    }
+    throw err
+  } finally {
+    client.release(broken)
+  }
+}
+
 export { pool }

@@ -27,6 +27,14 @@ export class ForbiddenError extends Error {
   }
 }
 
+// Thrown when the request is fine but the current state refuses it (e.g. a piece already has 30 photos). Mapped to 409.
+export class ConflictError extends Error {
+  constructor(message: string) {
+    super(message)
+    this.name = "ConflictError"
+  }
+}
+
 export class NotFoundError extends Error {
   constructor(message = "Not found") {
     super(message)

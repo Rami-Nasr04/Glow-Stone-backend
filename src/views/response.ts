@@ -1,6 +1,7 @@
 import type { APIGatewayProxyStructuredResultV2 } from "aws-lambda"
 import { ZodError } from "zod"
 import {
+  ConflictError,
   ForbiddenError,
   InvalidBodyError,
   NotFoundError,
@@ -65,6 +66,7 @@ export function handleError(err: unknown): APIGatewayProxyStructuredResultV2 {
   if (err instanceof UnauthorizedError) return fail("UNAUTHORIZED", err.message, 401)
   if (err instanceof ForbiddenError) return fail("FORBIDDEN", err.message, 403)
   if (err instanceof NotFoundError) return fail("NOT_FOUND", err.message, 404)
+  if (err instanceof ConflictError) return fail("CONFLICT", err.message, 409)
   if (err instanceof Error && err.name in COGNITO_ERROR_MAP) {
     const m = COGNITO_ERROR_MAP[err.name]
     return fail(m.code, m.message, m.status)

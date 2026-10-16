@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from "vitest"
 import { z } from "zod"
 import {
+  ConflictError,
   ForbiddenError,
   InvalidBodyError,
   NotFoundError,
@@ -50,6 +51,12 @@ describe("handleError()", () => {
     const r = handleError(err)
     expect(r.statusCode).toBe(status)
     expect(body(r).error.code).toBe(code)
+  })
+
+  it("maps ConflictError to 409 CONFLICT with its own message", () => {
+    const r = handleError(new ConflictError("A piece can have at most 30 photos."))
+    expect(r.statusCode).toBe(409)
+    expect(body(r).error).toEqual({ code: "CONFLICT", message: "A piece can have at most 30 photos." })
   })
 
   it("maps Cognito exceptions by name", () => {
