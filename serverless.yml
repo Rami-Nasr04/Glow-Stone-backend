@@ -46,10 +46,22 @@ provider:
             - ec2:DescribeNetworkInterfaces
             - ec2:DeleteNetworkInterface
           Resource: "*"
-        # The image resizer reads the photo masters; nothing can write or delete through this role.
+        # One role for every function. The resizer and the photo routes read the masters;
+        # the photo routes also write and delete them (Omar's uploads, deletes).
         - Effect: Allow
-          Action: s3:GetObject
+          Action:
+            - s3:GetObject
+            - s3:PutObject
+            - s3:DeleteObject
           Resource: arn:aws:s3:::${env:IMAGES_BUCKET}/products/*
+        # incoming/ = the studio's uploads before they become masters (the bucket deletes leftovers after 1 day).
+        # PutObject here is what lets the presigned upload form write the original.
+        - Effect: Allow
+          Action:
+            - s3:GetObject
+            - s3:PutObject
+            - s3:DeleteObject
+          Resource: arn:aws:s3:::${env:IMAGES_BUCKET}/incoming/*
         # Lets S3 answer "not found" (404) instead of AccessDenied for a missing photo.
         - Effect: Allow
           Action: s3:ListBucket
@@ -64,6 +76,9 @@ provider:
     # The admin pool and the studio's app client (not secrets): the admin routes check every token against them.
     ADMIN_USER_POOL_ID: ${env:ADMIN_USER_POOL_ID}
     ADMIN_APP_CLIENT_ID: ${env:ADMIN_APP_CLIENT_ID}
+    # The photos bucket and the CloudFront address in front of it (not secrets).
+    IMAGES_BUCKET: ${env:IMAGES_BUCKET}
+    CDN_URL: ${env:CDN_URL}
   httpApi:
     cors:
       allowedOrigins:
@@ -170,6 +185,55 @@ functions:
           authorizer:
             name: adminAuthorizer
 
+  # Photos of a piece (studio). The uploaded photo goes from the browser straight to S3 (incoming/); these
+  # reach S3 from inside the VPC through the free S3 gateway endpoint.
+  adminRequestPhotoUpload:
+    handler: src/controllers/adminPhotoController.upload
+    vpc: ${self:custom.vpc}
+    events:
+      - httpApi:
+          path: /admin/products/{id}/photos/upload
+          method: POST
+          authorizer:
+            name: adminAuthorizer
+
+  # Makes the master with sharp: arm64 for the layer, memory for a 30 MB camera photo, and just under
+  # API Gateway's 30 s limit.
+  adminConfirmPhoto:
+    handler: src/controllers/adminPhotoUploadController.confirm
+    vpc: ${self:custom.vpc}
+    architecture: arm64
+    memorySize: 1536
+    timeout: 29
+    layers:
+      - Ref: SharpLambdaLayer
+    events:
+      - httpApi:
+          path: /admin/products/{id}/photos
+          method: POST
+          authorizer:
+            name: adminAuthorizer
+
+  adminReorderPhotos:
+    handler: src/controllers/adminPhotoController.reorder
+    vpc: ${self:custom.vpc}
+    events:
+      - httpApi:
+          path: /admin/products/{id}/photos/order
+          method: PUT
+          authorizer:
+            name: adminAuthorizer
+
+  adminDeletePhoto:
+    handler: src/controllers/adminPhotoController.remove
+    vpc: ${self:custom.vpc}
+    events:
+      - httpApi:
+          path: /admin/products/{id}/photos/{imageId}
+          method: DELETE
+          authorizer:
+            name: adminAuthorizer
+
   # Image resizer behind CloudFront: a Function URL (auth AWS_IAM) that only CloudFront may call, set up in the console.
   # No VPC: it only reads S3. At most 10 at once, so a flood of made-up photo names can't run up the bill
   # or take capacity from the API. Extra requests get a "too busy" error instead; cached photos are unaffected.
@@ -181,5 +245,3 @@ functions:
     reservedConcurrency: 10
     layers:
       - Ref: SharpLambdaLayer
-    environment:
-      IMAGES_BUCKET: ${env:IMAGES_BUCKET}

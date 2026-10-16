@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest"
-import { presignUpload } from "./s3"
+import { presignUpload } from "./s3Upload"
 
 interface Policy {
   expiration: string

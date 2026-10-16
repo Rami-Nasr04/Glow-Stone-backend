@@ -1,11 +1,13 @@
 import { beforeEach, describe, expect, it, vi } from "vitest"
 import { ConflictError, NotFoundError, ValidationError } from "../lib/errors"
 import { PHOTO_MESSAGES } from "../lib/photoRules"
-import { deleteObject, presignUpload } from "../lib/s3"
+import { deleteObject } from "../lib/s3"
+import { presignUpload } from "../lib/s3Upload"
 import { countProductImages, deleteProductImage, reorderProductImages } from "../models/productImageModel"
 import { deletePhoto, reorderPhotos, requestUpload } from "./adminPhotoService"
 
 vi.mock("../lib/s3")
+vi.mock("../lib/s3Upload")
 vi.mock("../models/productImageModel")
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/
