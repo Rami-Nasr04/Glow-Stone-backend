@@ -6,7 +6,7 @@ import { deleteObject, objectSize, readObject, writeObject } from "../lib/s3"
 import { addProductImage } from "../models/productImageModel"
 import type { AdminProductImage } from "../types/catalog"
 import { toAdminImage } from "./adminProductService"
-import { makeMaster } from "./imageService"
+import { makeMaster, type Master } from "./imageService"
 
 // Loads sharp (through imageService), so only the function with the sharp layer may import this file.
 
@@ -18,20 +18,29 @@ async function deleteQuietly(bucket: string, key: string, what: string): Promise
   }
 }
 
+// S3 already refused anything over 30 MB at upload; this checks again before reading it into memory.
+async function masterFrom(bucket: string, key: string, size: number): Promise<Master> {
+  if (size > MAX_UPLOAD_BYTES) throw new ValidationError(PHOTO_MESSAGES.tooLarge)
+  const bytes = await readObject(bucket, key)
+  if (!bytes) throw new ValidationError(PHOTO_MESSAGES.uploadMissing)
+  return makeMaster(bytes)
+}
+
 // Step 3 of 3: the photo the studio uploaded to incoming/ becomes a master and is added at the end of the piece.
 export async function confirmUpload(productId: number, uploadId: string): Promise<AdminProductImage> {
   const bucket = requiredEnv("IMAGES_BUCKET")
   const cdnUrl = requiredEnv("CDN_URL")
   const original = incomingKey(productId, uploadId)
 
-  // S3 already refused anything over 30 MB at upload; this checks again before reading it into memory.
   const size = await objectSize(bucket, original)
   if (size === null) throw new ValidationError(PHOTO_MESSAGES.uploadMissing)
-  if (size > MAX_UPLOAD_BYTES) throw new ValidationError(PHOTO_MESSAGES.tooLarge)
-  const bytes = await readObject(bucket, original)
-  if (!bytes) throw new ValidationError(PHOTO_MESSAGES.uploadMissing)
 
-  const master = await makeMaster(bytes)
+  // A refused photo (too large, too small, not a photo) has to be uploaded again anyway: remove it now rather
+  // than keep a phone photo's location data until the 1-day cleanup. Other failures keep it for a retry.
+  const master = await masterFrom(bucket, original, size).catch(async (err: unknown) => {
+    if (err instanceof ValidationError) await deleteQuietly(bucket, original, "refused original")
+    throw err
+  })
   const name = newMasterName()
   const key = masterKey(productId, name)
   await writeObject(bucket, key, master.data, "image/webp")

@@ -77,11 +77,25 @@ describe("confirmUpload()", () => {
     expect(writeObject).not.toHaveBeenCalled()
   })
 
-  it("passes the photo's own refusal through and stores nothing", async () => {
+  it("passes the photo's own refusal through, stores nothing and removes the refused original", async () => {
     vi.mocked(makeMaster).mockRejectedValue(new ValidationError(PHOTO_MESSAGES.tooSmall))
     await expect(confirmUpload(5, UPLOAD)).rejects.toThrow(PHOTO_MESSAGES.tooSmall)
     expect(writeObject).not.toHaveBeenCalled()
     expect(addProductImage).not.toHaveBeenCalled()
+    // Omar has to upload again anyway; a refused phone photo shouldn't keep its location data for a day.
+    expect(deleteObject).toHaveBeenCalledExactlyOnceWith("bucket-test", ORIGINAL)
+  })
+
+  it("removes an original over 30 MB too", async () => {
+    vi.mocked(objectSize).mockResolvedValue(30 * 1024 * 1024 + 1)
+    await expect(confirmUpload(5, UPLOAD)).rejects.toThrow(PHOTO_MESSAGES.tooLarge)
+    expect(deleteObject).toHaveBeenCalledExactlyOnceWith("bucket-test", ORIGINAL)
+  })
+
+  it("keeps the original when the failure isn't the photo's fault (so a retry can still work)", async () => {
+    vi.mocked(makeMaster).mockRejectedValue(new Error("out of memory"))
+    await expect(confirmUpload(5, UPLOAD)).rejects.toThrow("out of memory")
+    expect(deleteObject).not.toHaveBeenCalled()
   })
 
   it("deletes the new master when the piece is already full, and says so", async () => {
