@@ -47,8 +47,11 @@ const summary = {
   images: [],
 }
 
+// Rows carry the id and position (the studio needs them); the public answer must not.
 const image = (product_id: number, name: string) => ({
+  id: product_id * 100 + name.charCodeAt(0),
   product_id,
+  position: 1,
   url: `https://cdn.test/products/${product_id}/${name}`,
   width: 2048,
   height: 3072,
@@ -99,6 +102,7 @@ describe("getProduct()", () => {
     const product = await getProduct(8)
     expect(findProductImages).toHaveBeenCalledWith([8])
     expect(product.images.map((i) => i.url.slice(-12))).toEqual(["aaaaaaaaaaaa", "bbbbbbbbbbbb", "cccccccccccc"])
+    for (const img of product.images) expect(Object.keys(img)).toEqual(["url", "width", "height"])
   })
 
   it("throws NotFoundError when there is no published product with that id", async () => {

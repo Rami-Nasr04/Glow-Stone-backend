@@ -1,10 +1,12 @@
 import { executeQuery } from "../lib/db"
 
 export interface ProductImageRow {
+  id: number
   product_id: number
   url: string
   width: number
   height: number
+  position: number
 }
 
 // Photos of several pieces in one query (never one query per piece), each piece's in position order.
@@ -12,9 +14,9 @@ export interface ProductImageRow {
 export async function findProductImages(productIds: number[], perProduct: number | null = null): Promise<ProductImageRow[]> {
   if (productIds.length === 0) return []
   return executeQuery<ProductImageRow>(
-    `select product_id, url, width, height
+    `select id, product_id, url, width, height, position
      from (
-       select product_id, url, width, height, position,
+       select id, product_id, url, width, height, position,
               row_number() over (partition by product_id order by position) as rank
        from product_images
        where product_id = any($1::int[])

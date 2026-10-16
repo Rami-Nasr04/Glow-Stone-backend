@@ -3,22 +3,33 @@ import { findProductImages } from "../models/productImageModel"
 import type { AdminProductRow } from "../models/productModel"
 import { findAllProducts, findProductById, insertProduct, updateProduct } from "../models/productModel"
 import type { ProductInput, ProductPatch } from "../schemas/product.schema"
-import type { AdminProduct, ProductImage } from "../types/catalog"
-import { imagesByProduct, LIST_IMAGES_PER_PRODUCT, toSummary } from "./productService"
+import type { ProductImageRow } from "../models/productImageModel"
+import type { AdminProduct, AdminProductImage } from "../types/catalog"
+import { groupByProduct, LIST_IMAGES_PER_PRODUCT, toSummary } from "./productService"
 
-function toAdminProduct(row: AdminProductRow, images: ProductImage[]): AdminProduct {
-  return { ...toSummary(row, images), story: row.story, status: row.status, updatedAt: row.updated_at.toISOString() }
+export const toAdminImage = ({ id, url, width, height, position }: ProductImageRow): AdminProductImage => ({
+  id,
+  url,
+  width,
+  height,
+  position,
+})
+
+const adminImagesByProduct = (rows: ProductImageRow[]) => groupByProduct(rows, toAdminImage)
+
+function toAdminProduct(row: AdminProductRow, images: AdminProductImage[]): AdminProduct {
+  return { ...toSummary(row, []), images, story: row.story, status: row.status, updatedAt: row.updated_at.toISOString() }
 }
 
 async function withAllImages(row: AdminProductRow): Promise<AdminProduct> {
-  return toAdminProduct(row, imagesByProduct(await findProductImages([row.id])).get(row.id) ?? [])
+  return toAdminProduct(row, adminImagesByProduct(await findProductImages([row.id])).get(row.id) ?? [])
 }
 
 // Every piece, drafts included, newest first, each with its first 2 photos (2 queries in all).
 export async function listAdminProducts(): Promise<AdminProduct[]> {
   const rows = await findAllProducts()
   if (rows.length === 0) return []
-  const images = imagesByProduct(await findProductImages(rows.map((r) => r.id), LIST_IMAGES_PER_PRODUCT))
+  const images = adminImagesByProduct(await findProductImages(rows.map((r) => r.id), LIST_IMAGES_PER_PRODUCT))
   return rows.map((row) => toAdminProduct(row, images.get(row.id) ?? []))
 }
 

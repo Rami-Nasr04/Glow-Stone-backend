@@ -31,10 +31,12 @@ const row: AdminProductRow = {
 }
 
 const photo = (productId: number, n: number) => ({
+  id: productId * 10 + n,
   product_id: productId,
   url: `https://cdn.test/products/${productId}/photo${n}aaaaaa`,
   width: 2880,
   height: 4318,
+  position: n,
 })
 
 const expected: AdminProduct = {
@@ -92,6 +94,9 @@ describe("getAdminProduct()", () => {
     expect(findProductImages).toHaveBeenCalledExactlyOnceWith([7])
     expect(product.images).toHaveLength(3)
     expect(product.status).toBe("draft")
+    // The studio reorders and deletes by id, so admin photos carry their id and place (nothing else).
+    expect(product.images[0]).toStrictEqual({ id: 71, url: photo(7, 1).url, width: 2880, height: 4318, position: 1 })
+    expect(product.images.map((i) => i.position)).toEqual([1, 2, 3])
   })
 
   it("is not found for an unknown id, without looking for photos", async () => {
@@ -116,7 +121,7 @@ describe("updateAdminProduct()", () => {
     vi.mocked(findProductImages).mockResolvedValue([photo(7, 1)])
     const product = await updateAdminProduct(7, { status: "published" })
     expect(updateProduct).toHaveBeenCalledExactlyOnceWith(7, { status: "published" })
-    expect(product).toMatchObject({ status: "published", images: [{ url: photo(7, 1).url, width: 2880, height: 4318 }] })
+    expect(product).toMatchObject({ status: "published", images: [{ id: 71, url: photo(7, 1).url, width: 2880, height: 4318, position: 1 }] })
   })
 
   it("is not found for an unknown id, without looking for photos", async () => {

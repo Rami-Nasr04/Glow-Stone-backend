@@ -34,8 +34,15 @@ export interface Product extends ProductSummary {
   story: string | null
 }
 
+// A photo as the studio sees it: its id (to reorder or delete it) and its place (1 = cover, 2 = hover).
+export interface AdminProductImage extends ProductImage {
+  id: number
+  position: number
+}
+
 // What the studio reads: every piece, drafts included.
-export interface AdminProduct extends Product {
+export interface AdminProduct extends Omit<Product, "images"> {
   status: "draft" | "published"
   updatedAt: string
+  images: AdminProductImage[]
 }

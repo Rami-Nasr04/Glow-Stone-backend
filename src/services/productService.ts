@@ -7,12 +7,16 @@ import type { Product, ProductImage, ProductSummary } from "../types/catalog"
 
 export const LIST_IMAGES_PER_PRODUCT = 2 // cover + hover on the collection card
 
-export function imagesByProduct(rows: ProductImageRow[]): Map<number, ProductImage[]> {
-  const grouped = new Map<number, ProductImage[]>()
-  for (const { product_id, url, width, height } of rows) {
-    grouped.set(product_id, [...(grouped.get(product_id) ?? []), { url, width, height }])
-  }
+// Each piece's photos, in the rows' order, shaped by toImage.
+export function groupByProduct<T>(rows: ProductImageRow[], toImage: (row: ProductImageRow) => T): Map<number, T[]> {
+  const grouped = new Map<number, T[]>()
+  for (const row of rows) grouped.set(row.product_id, [...(grouped.get(row.product_id) ?? []), toImage(row)])
   return grouped
+}
+
+// The public shape only: the photo ids and positions stay inside the studio.
+export function imagesByProduct(rows: ProductImageRow[]): Map<number, ProductImage[]> {
+  return groupByProduct(rows, ({ url, width, height }) => ({ url, width, height }))
 }
 
 export function toSummary(row: ProductRow, images: ProductImage[]): ProductSummary {
