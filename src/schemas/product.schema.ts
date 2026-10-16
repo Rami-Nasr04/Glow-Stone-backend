@@ -1,14 +1,12 @@
 import { z } from "zod"
 
-// Product ids are Postgres `integer` identity values: 1 to 2,147,483,647, written plainly (no "03", "1e2", spaces).
-const MAX_PRODUCT_ID = 2_147_483_647
-const INVALID_ID = "Invalid product id"
+// Ids in the path are Postgres `integer` identity values: 1 to 2,147,483,647, written plainly (no "03", "1e2", spaces).
+const MAX_ID = 2_147_483_647
 
-export const productIdSchema = z
-  .string()
-  .regex(/^[1-9]\d{0,9}$/, INVALID_ID)
-  .transform(Number)
-  .pipe(z.number().max(MAX_PRODUCT_ID, INVALID_ID))
+export const pathIdSchema = (message: string) =>
+  z.string().regex(/^[1-9]\d{0,9}$/, message).transform(Number).pipe(z.number().max(MAX_ID, message))
+
+export const productIdSchema = pathIdSchema("Invalid product id")
 
 // The limits below mirror the `products` columns (002_products.sql), so a bad value gets a clear message
 // here instead of a database error: integer, numeric(10,2) for the price, numeric(6,1) for sizes and weight.
