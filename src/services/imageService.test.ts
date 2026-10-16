@@ -53,12 +53,12 @@ describe("makeMaster()", () => {
     expect(await makeMaster(await image(1500, 1000, "webp"))).toMatchObject({ width: 1500, height: 1000 })
   })
 
-  it("accepts exactly 1440 px wide", async () => {
-    expect(await makeMaster(await image(1440, 2000, "jpeg"))).toMatchObject({ width: 1440, height: 2000 })
+  it("accepts exactly 1067 px wide, the width of the studio's own edited portraits", async () => {
+    expect(await makeMaster(await image(1067, 1600, "jpeg"))).toMatchObject({ width: 1067, height: 1600 })
   })
 
-  it("refuses a photo narrower than 1440 px", async () => {
-    await expect(makeMaster(await image(1439, 2000, "jpeg"))).rejects.toThrow(new ValidationError(PHOTO_MESSAGES.tooSmall))
+  it("refuses a photo narrower than 1067 px", async () => {
+    await expect(makeMaster(await image(1066, 1600, "jpeg"))).rejects.toThrow(new ValidationError(PHOTO_MESSAGES.tooSmall))
   })
 
   it("judges the width once upright: wide when stored, narrow when turned", async () => {
