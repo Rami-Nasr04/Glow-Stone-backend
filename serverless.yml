@@ -87,9 +87,7 @@ provider:
         # vite preview of the built site
         - http://localhost:4173
         - http://127.0.0.1:4173
-        # the website on Vercel (Milestone 1)
-        - https://glow-stone-frontend.vercel.app
-        # the shop and the studio on the real domain (www redirects to the bare domain, so it never calls the API)
+        # the shop and the studio (www and both vercel.app addresses redirect to these, so they never call the API)
         - https://glowstonelb.com
         - https://studio.glowstonelb.com
       allowedHeaders:
