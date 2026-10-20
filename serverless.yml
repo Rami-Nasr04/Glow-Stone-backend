@@ -36,6 +36,8 @@ provider:
   region: ${env:AWS_REGION, 'eu-central-1'}
   stage: ${opt:stage, 'dev'}
   profile: glow-stone
+  # A month is enough to look into any error; after that the lines (which may hold customer details once orders exist) go.
+  logRetentionInDays: 30
   iam:
     role:
       statements:
