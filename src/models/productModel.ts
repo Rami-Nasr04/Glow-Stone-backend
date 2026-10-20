@@ -1,4 +1,4 @@
-import { executeQuery } from "../lib/db"
+import { executeQuery, withTransaction } from "../lib/db"
 import { ValidationError } from "../lib/errors"
 import type { ProductInput, ProductPatch } from "../schemas/product.schema"
 
@@ -109,4 +109,18 @@ export async function updateProduct(id: number, changes: ProductPatch): Promise<
     [id, ...pairs.map(([, value]) => value)],
   )
   return rows[0] ?? null
+}
+
+// Deletes a draft and its photo rows in one transaction (the photo rows first: their link to the piece has no
+// cascade). The piece's row is locked first, so it can't be published, or get a photo, halfway through.
+// "published" = refused, nothing deleted; null = no such piece.
+export async function deleteDraftProduct(id: number): Promise<"deleted" | "published" | null> {
+  return withTransaction(async (client) => {
+    const { rows } = await client.query<Pick<AdminProductRow, "status">>("select status from products where id = $1 for update", [id])
+    if (rows.length === 0) return null
+    if (rows[0].status !== "draft") return "published"
+    await client.query("delete from product_images where product_id = $1", [id])
+    await client.query("delete from products where id = $1", [id])
+    return "deleted"
+  })
 }

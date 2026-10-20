@@ -1,7 +1,9 @@
-import { NotFoundError } from "../lib/errors"
+import { requiredEnv } from "../lib/env"
+import { ConflictError, NotFoundError } from "../lib/errors"
+import { deleteFolder } from "../lib/s3"
 import { findProductImages } from "../models/productImageModel"
 import type { AdminProductRow } from "../models/productModel"
-import { findAllProducts, findProductById, insertProduct, updateProduct } from "../models/productModel"
+import { deleteDraftProduct, findAllProducts, findProductById, insertProduct, updateProduct } from "../models/productModel"
 import type { ProductInput, ProductPatch } from "../schemas/product.schema"
 import type { ProductImageRow } from "../models/productImageModel"
 import type { AdminProduct, AdminProductImage } from "../types/catalog"
@@ -49,4 +51,19 @@ export async function updateAdminProduct(id: number, changes: ProductPatch): Pro
   const row = await updateProduct(id, changes)
   if (!row) throw new NotFoundError("Product not found")
   return withAllImages(row)
+}
+
+// Drafts only: a published piece must be set to draft first, so a live piece is never deleted with one click.
+// The rows go first (that is what the website reads), then every file in the piece's photo folder. A failed file
+// delete only leaves unused files behind (nothing links to them), so it is logged, not returned.
+export async function deleteProduct(id: number): Promise<void> {
+  const result = await deleteDraftProduct(id)
+  if (result === null) throw new NotFoundError("Product not found")
+  if (result === "published") throw new ConflictError("Set this piece to draft before deleting it.")
+  const folder = `products/${id}/`
+  try {
+    await deleteFolder(requiredEnv("IMAGES_BUCKET"), folder)
+  } catch (err) {
+    console.error("Photo files of a deleted piece were left:", folder, err)
+  }
 }

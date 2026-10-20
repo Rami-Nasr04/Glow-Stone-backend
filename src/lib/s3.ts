@@ -1,7 +1,9 @@
 import {
   DeleteObjectCommand,
+  DeleteObjectsCommand,
   GetObjectCommand,
   HeadObjectCommand,
+  ListObjectsV2Command,
   NoSuchKey,
   NotFound,
   PutObjectCommand,
@@ -41,4 +43,22 @@ export async function writeObject(bucket: string, key: string, body: Buffer, con
 // Deleting a key that doesn't exist succeeds (S3 behaviour), so a retry is harmless.
 export async function deleteObject(bucket: string, key: string): Promise<void> {
   await s3.send(new DeleteObjectCommand({ Bucket: bucket, Key: key }))
+}
+
+// Deletes every object whose key starts with prefix (a folder such as "products/13/"); returns how many.
+// One list + one batch delete per 1,000 keys. A key S3 couldn't delete fails the whole call, so it gets logged.
+export async function deleteFolder(bucket: string, prefix: string): Promise<number> {
+  let deleted = 0
+  let token: string | undefined
+  do {
+    const page = await s3.send(new ListObjectsV2Command({ Bucket: bucket, Prefix: prefix, ContinuationToken: token }))
+    const keys = (page.Contents ?? []).flatMap(({ Key }) => (Key ? [{ Key }] : []))
+    if (keys.length > 0) {
+      const result = await s3.send(new DeleteObjectsCommand({ Bucket: bucket, Delete: { Objects: keys, Quiet: true } }))
+      if (result.Errors?.length) throw new Error(`S3 kept ${result.Errors.length} of ${keys.length} files under ${prefix}`)
+      deleted += keys.length
+    }
+    token = page.IsTruncated ? page.NextContinuationToken : undefined
+  } while (token)
+  return deleted
 }

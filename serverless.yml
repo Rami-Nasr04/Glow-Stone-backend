@@ -188,6 +188,17 @@ functions:
           authorizer:
             name: adminAuthorizer
 
+  # Drafts only; also deletes the piece's photo files (S3 through the gateway endpoint, like the photo routes).
+  adminDeleteProduct:
+    handler: src/controllers/adminProductController.remove
+    vpc: ${self:custom.vpc}
+    events:
+      - httpApi:
+          path: /admin/products/{id}
+          method: DELETE
+          authorizer:
+            name: adminAuthorizer
+
   # Photos of a piece (studio). The uploaded photo goes from the browser straight to S3 (incoming/); these
   # reach S3 from inside the VPC through the free S3 gateway endpoint.
   adminRequestPhotoUpload:

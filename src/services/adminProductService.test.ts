@@ -1,13 +1,15 @@
 import { beforeEach, describe, expect, it, vi } from "vitest"
-import { NotFoundError } from "../lib/errors"
+import { ConflictError, NotFoundError } from "../lib/errors"
+import { deleteFolder } from "../lib/s3"
 import { findProductImages } from "../models/productImageModel"
 import type { AdminProductRow } from "../models/productModel"
-import { findAllProducts, findProductById, insertProduct, updateProduct } from "../models/productModel"
+import { deleteDraftProduct, findAllProducts, findProductById, insertProduct, updateProduct } from "../models/productModel"
 import type { AdminProduct } from "../types/catalog"
-import { createProduct, getAdminProduct, listAdminProducts, updateAdminProduct } from "./adminProductService"
+import { createProduct, deleteProduct, getAdminProduct, listAdminProducts, updateAdminProduct } from "./adminProductService"
 
 vi.mock("../models/productModel")
 vi.mock("../models/productImageModel")
+vi.mock("../lib/s3")
 
 const row: AdminProductRow = {
   id: 7,
@@ -128,5 +130,40 @@ describe("updateAdminProduct()", () => {
     vi.mocked(updateProduct).mockResolvedValue(null)
     await expect(updateAdminProduct(99, { price: 1 })).rejects.toThrow(NotFoundError)
     expect(findProductImages).not.toHaveBeenCalled()
+  })
+})
+
+describe("deleteProduct()", () => {
+  beforeEach(() => {
+    vi.stubEnv("IMAGES_BUCKET", "bucket-test")
+  })
+
+  it("deletes a draft, then every file in its photo folder", async () => {
+    vi.mocked(deleteDraftProduct).mockResolvedValue("deleted")
+    vi.mocked(deleteFolder).mockResolvedValue(3)
+    await deleteProduct(13)
+    expect(deleteDraftProduct).toHaveBeenCalledExactlyOnceWith(13)
+    expect(deleteFolder).toHaveBeenCalledExactlyOnceWith("bucket-test", "products/13/")
+  })
+
+  it("refuses a published piece and leaves its files", async () => {
+    vi.mocked(deleteDraftProduct).mockResolvedValue("published")
+    await expect(deleteProduct(4)).rejects.toThrow(new ConflictError("Set this piece to draft before deleting it."))
+    expect(deleteFolder).not.toHaveBeenCalled()
+  })
+
+  it("says Product not found for an unknown piece and leaves S3 alone", async () => {
+    vi.mocked(deleteDraftProduct).mockResolvedValue(null)
+    await expect(deleteProduct(99)).rejects.toThrow(new NotFoundError("Product not found"))
+    expect(deleteFolder).not.toHaveBeenCalled()
+  })
+
+  it("still succeeds when S3 fails after the database part, and logs the folder left behind", async () => {
+    vi.mocked(deleteDraftProduct).mockResolvedValue("deleted")
+    vi.mocked(deleteFolder).mockRejectedValue(new Error("S3 down"))
+    const log = vi.spyOn(console, "error").mockImplementation(() => {})
+    await expect(deleteProduct(13)).resolves.toBeUndefined()
+    expect(log).toHaveBeenCalledWith("Photo files of a deleted piece were left:", "products/13/", expect.any(Error))
+    log.mockRestore()
   })
 })

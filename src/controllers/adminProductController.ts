@@ -2,7 +2,7 @@ import type { APIGatewayProxyEventV2, APIGatewayProxyStructuredResultV2 } from "
 import { requireAdmin } from "../lib/auth"
 import { getPathParam, parseBody } from "../lib/request"
 import { productIdSchema, productInputSchema, productPatchSchema } from "../schemas/product.schema"
-import { createProduct, getAdminProduct, listAdminProducts, updateAdminProduct } from "../services/adminProductService"
+import { createProduct, deleteProduct, getAdminProduct, listAdminProducts, updateAdminProduct } from "../services/adminProductService"
 import { handleError, ok } from "../views/response"
 
 // GET /admin/products: every piece, drafts included, newest first.
@@ -44,6 +44,18 @@ export const update = async (event: APIGatewayProxyEventV2): Promise<APIGatewayP
     const id = productIdSchema.parse(getPathParam(event, "id") ?? "")
     const changes = productPatchSchema.parse(parseBody(event))
     return ok(await updateAdminProduct(id, changes))
+  } catch (err) {
+    return handleError(err)
+  }
+}
+
+// DELETE /admin/products/{id}: a draft with all its photos; a published piece answers 409.
+export const remove = async (event: APIGatewayProxyEventV2): Promise<APIGatewayProxyStructuredResultV2> => {
+  try {
+    requireAdmin(event)
+    const id = productIdSchema.parse(getPathParam(event, "id") ?? "")
+    await deleteProduct(id)
+    return { statusCode: 204 }
   } catch (err) {
     return handleError(err)
   }

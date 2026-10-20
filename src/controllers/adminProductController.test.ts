@@ -1,9 +1,15 @@
 import type { APIGatewayProxyEventV2 } from "aws-lambda"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
-import { NotFoundError } from "../lib/errors"
-import { createProduct, getAdminProduct, listAdminProducts, updateAdminProduct } from "../services/adminProductService"
+import { ConflictError, NotFoundError } from "../lib/errors"
+import {
+  createProduct,
+  deleteProduct,
+  getAdminProduct,
+  listAdminProducts,
+  updateAdminProduct,
+} from "../services/adminProductService"
 import type { AdminProduct } from "../types/catalog"
-import { create, get, list, update } from "./adminProductController"
+import { create, get, list, remove, update } from "./adminProductController"
 
 vi.mock("../services/adminProductService")
 
@@ -69,12 +75,13 @@ describe("every admin route", () => {
     ["GET one", () => get(event({ id: "7", claims: null }))],
     ["POST", () => create(event({ body: JSON.stringify(input), claims: null }))],
     ["PATCH", () => update(event({ id: "7", body: '{"price":1}', claims: null }))],
+    ["DELETE", () => remove(event({ id: "7", claims: null }))],
     ["GET list with an ID token", () => list(event({ claims: { ...adminClaims, token_use: "id" } }))],
   ])("refuses %s without an admin access token, before touching data", async (_label, call) => {
     const res = await call()
     expect(res.statusCode).toBe(401)
     expect(body(res).error.code).toBe("UNAUTHORIZED")
-    for (const service of [listAdminProducts, getAdminProduct, createProduct, updateAdminProduct]) {
+    for (const service of [listAdminProducts, getAdminProduct, createProduct, updateAdminProduct, deleteProduct]) {
       expect(service).not.toHaveBeenCalled()
     }
   })
@@ -146,5 +153,35 @@ describe("PATCH /admin/products/{id}", () => {
   it("answers 404 for an unknown id", async () => {
     vi.mocked(updateAdminProduct).mockRejectedValue(new NotFoundError("Product not found"))
     expect((await update(event({ id: "99", body: '{"price":1}' }))).statusCode).toBe(404)
+  })
+})
+
+describe("DELETE /admin/products/{id}", () => {
+  it("deletes the piece and answers 204 with an empty body", async () => {
+    vi.mocked(deleteProduct).mockResolvedValue()
+    const res = await remove(event({ id: "13" }))
+    expect(res.statusCode).toBe(204)
+    expect(res.body).toBeUndefined()
+    expect(deleteProduct).toHaveBeenCalledExactlyOnceWith(13)
+  })
+
+  it("answers 409 with the message for a published piece", async () => {
+    vi.mocked(deleteProduct).mockRejectedValue(new ConflictError("Set this piece to draft before deleting it."))
+    const res = await remove(event({ id: "4" }))
+    expect(res.statusCode).toBe(409)
+    expect(body(res).error).toEqual({ code: "CONFLICT", message: "Set this piece to draft before deleting it." })
+  })
+
+  it("answers 404 for an unknown piece", async () => {
+    vi.mocked(deleteProduct).mockRejectedValue(new NotFoundError("Product not found"))
+    const res = await remove(event({ id: "99" }))
+    expect(res.statusCode).toBe(404)
+    expect(body(res).error.code).toBe("NOT_FOUND")
+  })
+
+  it.each(["abc", "0", "-1", "1.5"])("answers 400 for the id %s without calling the service", async (id) => {
+    const res = await remove(event({ id }))
+    expect(res.statusCode).toBe(400)
+    expect(deleteProduct).not.toHaveBeenCalled()
   })
 })
