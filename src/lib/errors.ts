@@ -41,3 +41,14 @@ export class NotFoundError extends Error {
     this.name = "NotFoundError"
   }
 }
+
+// Thrown when a service we call (e.g. Vercel's deploy hook) fails. Mapped to 502 with its own code.
+export class UpstreamError extends Error {
+  constructor(
+    readonly code: string,
+    message: string,
+  ) {
+    super(message)
+    this.name = "UpstreamError"
+  }
+}

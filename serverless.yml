@@ -199,6 +199,19 @@ functions:
           authorizer:
             name: adminAuthorizer
 
+  # Rebuilds the shop through Vercel's deploy hook. No VPC: it needs the internet, not the database. The hook's
+  # address is a secret (anyone holding it can start builds), so only this function gets it.
+  adminPublish:
+    handler: src/controllers/adminPublishController.publish
+    environment:
+      VERCEL_DEPLOY_HOOK_URL: ${env:VERCEL_DEPLOY_HOOK_URL}
+    events:
+      - httpApi:
+          path: /admin/publish
+          method: POST
+          authorizer:
+            name: adminAuthorizer
+
   # Photos of a piece (studio). The uploaded photo goes from the browser straight to S3 (incoming/); these
   # reach S3 from inside the VPC through the free S3 gateway endpoint.
   adminRequestPhotoUpload:
