@@ -3,8 +3,9 @@ import { UpstreamError } from "../lib/errors"
 
 export const PUBLISH_FAILED = "Publishing couldn't start. Try again in a minute."
 
-// Vercel answers a deploy hook within a second; past 5 s something is wrong (the Lambda's own limit is 6 s).
-const HOOK_TIMEOUT_MS = 5000
+// Vercel takes about 7 s to answer a deploy hook (measured 2026-10-21); past 20 s something is wrong.
+// The Lambda's own limit is 25 s, under API Gateway's 30 s.
+const HOOK_TIMEOUT_MS = 20_000
 
 // Asks Vercel to rebuild the shop (its deploy hook). The hook's address is a secret, so neither it nor an error
 // message that may contain it is ever logged: only the status code, or the error's name.

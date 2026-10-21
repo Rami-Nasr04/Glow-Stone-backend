@@ -203,6 +203,8 @@ functions:
   # address is a secret (anyone holding it can start builds), so only this function gets it.
   adminPublish:
     handler: src/controllers/adminPublishController.publish
+    # Vercel takes about 7 s to answer the hook; the service gives up at 20 s.
+    timeout: 25
     environment:
       VERCEL_DEPLOY_HOOK_URL: ${env:VERCEL_DEPLOY_HOOK_URL}
     events:
