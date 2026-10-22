@@ -148,6 +148,15 @@ functions:
           path: /products/{id}
           method: GET
 
+  # The news list (footer, "notify me", contact form, sign-up). Public, so it is rate-limited below.
+  subscribe:
+    handler: src/controllers/subscriberController.create
+    vpc: ${self:custom.vpc}
+    events:
+      - httpApi:
+          path: /subscribers
+          method: POST
+
   adminListProducts:
     handler: src/controllers/adminProductController.list
     vpc: ${self:custom.vpc}
@@ -274,3 +283,14 @@ functions:
     reservedConcurrency: 10
     layers:
       - Ref: SharpLambdaLayer
+
+resources:
+  extensions:
+    # The public sign-up route accepts at most 2 requests a second (bursts of 5) from everyone together; past that,
+    # API Gateway answers 429 before any code or database work runs. Plenty for real visitors; a flood of fake emails stops here.
+    HttpApiStage:
+      Properties:
+        RouteSettings:
+          "POST /subscribers":
+            ThrottlingRateLimit: 2
+            ThrottlingBurstLimit: 5
