@@ -289,6 +289,8 @@ resources:
     # The public sign-up route accepts at most 2 requests a second (bursts of 5) from everyone together; past that,
     # API Gateway answers 429 before any code or database work runs. Plenty for real visitors; a flood of fake emails stops here.
     HttpApiStage:
+      # The route must exist before the stage can hold a limit for it.
+      DependsOn: HttpApiRoutePostSubscribers
       Properties:
         RouteSettings:
           "POST /subscribers":
