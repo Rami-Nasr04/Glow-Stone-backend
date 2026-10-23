@@ -14,9 +14,26 @@ export interface OrderRow {
   delivery_notes: string | null
   is_gift: boolean
   gift_message: string | null
-  // The account holder's, for an order they receive themselves.
+  // The account holder's, for an order they receive themselves (and the studio's customer box).
+  customer_id: string
+  customer_email: string
   customer_name: string
   customer_phone: string
+}
+
+// A row of the studio's order list: totals worked out in SQL, so the list never loads every line.
+export interface AdminOrderListRow {
+  id: number
+  status: OrderStatus
+  created_at: Date
+  city: string
+  is_gift: boolean
+  customer_id: string
+  customer_name: string
+  customer_phone: string
+  item_count: number
+  subtotal: number
+  delivery_fee: number
 }
 
 export interface OrderListRow {
@@ -116,7 +133,21 @@ export async function insertOrder(client: PoolClient, order: NewOrder): Promise<
   return orderId
 }
 
-// ---- Cancelling ----
+// ---- Changing an order (customer cancel, studio status, fee) ----
+
+// Locks any order for the studio; null = no such order.
+export async function lockOrder(client: PoolClient, orderId: number): Promise<OrderStatus | null> {
+  const { rows } = await client.query<{ status: OrderStatus }>("select status from orders where id = $1 for update", [orderId])
+  return rows[0]?.status ?? null
+}
+
+export async function setOrderStatus(client: PoolClient, orderId: number, status: OrderStatus): Promise<void> {
+  await client.query("update orders set status = $2 where id = $1", [orderId, status])
+}
+
+export async function setDeliveryFee(client: PoolClient, orderId: number, fee: number): Promise<void> {
+  await client.query("update orders set delivery_fee = $2 where id = $1", [orderId, fee])
+}
 
 // Locks one of the customer's orders; null = not theirs or no such order.
 export async function lockCustomerOrder(client: PoolClient, customerId: string, orderId: number): Promise<OrderStatus | null> {
@@ -147,15 +178,36 @@ export async function findCustomerOrders(customerId: string): Promise<OrderListR
   )
 }
 
-export async function findCustomerOrder(customerId: string, orderId: number): Promise<OrderRow | null> {
+// One order; with a customerId, only if it is that customer's (null otherwise).
+export async function findOrder(orderId: number, customerId: string | null = null): Promise<OrderRow | null> {
   const rows = await executeQuery<OrderRow>(
     `select o.id, o.status, o.created_at, o.delivery_fee, o.recipient_name, o.recipient_phone, o.city, o.address,
-            o.delivery_notes, o.is_gift, o.gift_message, c.name as customer_name, c.phone as customer_phone
+            o.delivery_notes, o.is_gift, o.gift_message,
+            c.id as customer_id, c.email as customer_email, c.name as customer_name, c.phone as customer_phone
      from orders o join customers c on c.id = o.customer_id
-     where o.id = $1 and o.customer_id = $2`,
+     where o.id = $1 and ($2::uuid is null or o.customer_id = $2::uuid)`,
     [orderId, customerId],
   )
   return rows[0] ?? null
+}
+
+// The studio's list, newest first: every order, or one status, or one customer's.
+export async function findAdminOrders(filter: { status?: OrderStatus; customerId?: string } = {}): Promise<AdminOrderListRow[]> {
+  return executeQuery<AdminOrderListRow>(
+    `select o.id, o.status, o.created_at, o.city, o.is_gift, o.delivery_fee,
+            c.id as customer_id, c.name as customer_name, c.phone as customer_phone,
+            lines.item_count, lines.subtotal
+     from orders o
+     join customers c on c.id = o.customer_id
+     join lateral (
+       select sum(quantity)::int as item_count, sum(quantity * unit_price) as subtotal
+       from order_items where order_id = o.id
+     ) lines on true
+     where ($1::order_status is null or o.status = $1::order_status)
+       and ($2::uuid is null or o.customer_id = $2::uuid)
+     order by o.created_at desc, o.id desc`,
+    [filter.status ?? null, filter.customerId ?? null],
+  )
 }
 
 // The lines of several orders in one query, each order's in product id order, with the pieces' current names.

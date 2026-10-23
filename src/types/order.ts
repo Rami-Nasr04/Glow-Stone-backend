@@ -43,3 +43,36 @@ export interface Order {
   giftMessage: string | null
   canCancel: boolean
 }
+
+// ---- Studio (admin) ----
+
+export interface AdminOrderSummary {
+  id: number
+  number: string
+  status: OrderStatus
+  createdAt: string
+  customer: { id: string; name: string; phone: string }
+  city: string
+  itemCount: number
+  total: number
+  isGift: boolean
+}
+
+export interface AdminOrder extends Order {
+  customer: { id: string; email: string; name: string; phone: string }
+  nextStatus: OrderStatus | null
+  canEditFee: boolean
+}
+
+export interface AdminCustomer {
+  id: string
+  email: string
+  name: string
+  phone: string
+  createdAt: string
+  orderCount: number
+}
+
+export interface AdminCustomerDetail extends Omit<AdminCustomer, "orderCount"> {
+  orders: AdminOrderSummary[]
+}

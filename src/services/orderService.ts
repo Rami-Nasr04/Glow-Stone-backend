@@ -3,17 +3,18 @@ import { ConflictError, ForbiddenError, NotFoundError, OrderRefusedError } from 
 import {
   cancelOrder,
   countPendingPieces,
-  findCustomerOrder,
   findCustomerOrders,
+  findOrder,
   findOrderLines,
   insertOrder,
   lockCustomer,
   lockCustomerOrder,
   lockProducts,
   type OrderLineRow,
+  type OrderRow,
 } from "../models/orderModel"
 import { findProductImages } from "../models/productImageModel"
-import type { PlaceOrderInput } from "../schemas/order.schema"
+import { ORDER_NOT_FOUND, type PlaceOrderInput } from "../schemas/order.schema"
 import type { ProductImage } from "../types/catalog"
 import type { Order, OrderSummary } from "../types/order"
 import { NO_CUSTOMER_ROW } from "./customerService"
@@ -27,7 +28,7 @@ export const ORDER_REFUSALS = {
   soldOut: (name: string) => `${name} is sold out.`,
   fewLeft: (name: string, left: number) => `${name} has only ${left} left.`,
   priceChanged: (name: string) => `The price of ${name} has changed. Please check your cart.`,
-  notFound: "Order not found",
+  notFound: ORDER_NOT_FOUND,
   cannotCancel: "This order can no longer be cancelled. Please contact Omar.",
 } as const
 
@@ -111,8 +112,13 @@ export async function listOrders(customerId: string): Promise<OrderSummary[]> {
 }
 
 export async function getOrder(customerId: string, orderId: number): Promise<Order> {
-  const order = await findCustomerOrder(customerId, orderId)
+  const order = await findOrder(orderId, customerId)
   if (!order) throw new NotFoundError(ORDER_REFUSALS.notFound)
+  return buildOrder(order)
+}
+
+// The full order, as the customer sees it (the studio adds its own fields on top).
+export async function buildOrder(order: OrderRow): Promise<Order> {
   const lines = await findOrderLines([order.id])
   const covers = await coverPhotos(lines)
   const subtotal = subtotalCents(lines)

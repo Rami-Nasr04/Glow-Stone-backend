@@ -1,5 +1,8 @@
 import { z } from "zod"
+import { NotFoundError } from "../lib/errors"
 import { phoneField } from "./customer.schema"
+
+export const ORDER_NOT_FOUND = "Order not found"
 
 export const ORDER_MESSAGES = {
   emptyCart: "Your cart is empty.",
@@ -56,3 +59,10 @@ export const placeOrderSchema = z
   .refine((order) => order.giftMessage === null || order.isGift, { message: ORDER_MESSAGES.giftOnly, path: ["giftMessage"] })
 
 export type PlaceOrderInput = z.infer<typeof placeOrderSchema>
+
+// An order id from the path. Anything that isn't one of ours (text, 0, too big for the column) is simply not found.
+export function orderIdFromPath(raw: string | null): number {
+  const id = raw !== null && /^\d{1,9}$/.test(raw) ? Number(raw) : 0
+  if (id < 1) throw new NotFoundError(ORDER_NOT_FOUND)
+  return id
+}

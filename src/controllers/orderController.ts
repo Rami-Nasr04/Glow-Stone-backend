@@ -1,18 +1,9 @@
 import type { APIGatewayProxyEventV2, APIGatewayProxyStructuredResultV2 } from "aws-lambda"
 import { requireCustomer } from "../lib/auth"
-import { NotFoundError } from "../lib/errors"
 import { getPathParam, parseBody } from "../lib/request"
-import { placeOrderSchema } from "../schemas/order.schema"
-import { cancelCustomerOrder, getOrder, listOrders, ORDER_REFUSALS, placeOrder } from "../services/orderService"
+import { orderIdFromPath, placeOrderSchema } from "../schemas/order.schema"
+import { cancelCustomerOrder, getOrder, listOrders, placeOrder } from "../services/orderService"
 import { handleError, ok } from "../views/response"
-
-// An order id from the path. Anything that isn't one of ours (text, 0, too big for the column) is simply not found.
-function orderId(event: APIGatewayProxyEventV2): number {
-  const raw = getPathParam(event, "id") ?? ""
-  const id = /^\d{1,9}$/.test(raw) ? Number(raw) : 0
-  if (id < 1) throw new NotFoundError(ORDER_REFUSALS.notFound)
-  return id
-}
 
 // POST /orders: 201 with the full order.
 export const place = async (event: APIGatewayProxyEventV2): Promise<APIGatewayProxyStructuredResultV2> => {
@@ -38,7 +29,7 @@ export const list = async (event: APIGatewayProxyEventV2): Promise<APIGatewayPro
 export const get = async (event: APIGatewayProxyEventV2): Promise<APIGatewayProxyStructuredResultV2> => {
   try {
     const { sub } = requireCustomer(event)
-    return ok(await getOrder(sub, orderId(event)))
+    return ok(await getOrder(sub, orderIdFromPath(getPathParam(event, "id"))))
   } catch (err) {
     return handleError(err)
   }
@@ -48,7 +39,7 @@ export const get = async (event: APIGatewayProxyEventV2): Promise<APIGatewayProx
 export const cancel = async (event: APIGatewayProxyEventV2): Promise<APIGatewayProxyStructuredResultV2> => {
   try {
     const { sub } = requireCustomer(event)
-    return ok(await cancelCustomerOrder(sub, orderId(event)))
+    return ok(await cancelCustomerOrder(sub, orderIdFromPath(getPathParam(event, "id"))))
   } catch (err) {
     return handleError(err)
   }
