@@ -78,6 +78,9 @@ provider:
     # The admin pool and the studio's app client (not secrets): the admin routes check every token against them.
     ADMIN_USER_POOL_ID: ${env:ADMIN_USER_POOL_ID}
     ADMIN_APP_CLIENT_ID: ${env:ADMIN_APP_CLIENT_ID}
+    # The customer pool and the shop's app client (not secrets): the customer routes check every token against them.
+    CUSTOMER_USER_POOL_ID: ${env:CUSTOMER_USER_POOL_ID}
+    CUSTOMER_APP_CLIENT_ID: ${env:CUSTOMER_APP_CLIENT_ID}
     # The photos bucket and the CloudFront address in front of it (not secrets).
     IMAGES_BUCKET: ${env:IMAGES_BUCKET}
     CDN_URL: ${env:CDN_URL}
@@ -113,6 +116,13 @@ provider:
         issuerUrl: https://cognito-idp.${self:provider.region}.amazonaws.com/${env:ADMIN_USER_POOL_ID}
         audience:
           - ${env:ADMIN_APP_CLIENT_ID}
+      # The same for the shop's customers: only tokens from the customer pool issued to the shop's app client.
+      customerAuthorizer:
+        type: jwt
+        identitySource: $request.header.Authorization
+        issuerUrl: https://cognito-idp.${self:provider.region}.amazonaws.com/${env:CUSTOMER_USER_POOL_ID}
+        audience:
+          - ${env:CUSTOMER_APP_CLIENT_ID}
 
 layers:
   # sharp built for the Lambda's Linux arm64, by `npm run build:sharp-layer` (the folder is gitignored).
@@ -156,6 +166,26 @@ functions:
       - httpApi:
           path: /subscribers
           method: POST
+
+  # Customer pool triggers, attached to the pool in the console (Extensions). No VPC for the check: it never
+  # touches the database, so sign-up stays fast.
+  customerPreSignUp:
+    handler: src/controllers/customerTriggerController.preSignUp
+
+  # Post confirmation AND post authentication: makes the customers row (again on sign-in if the first try failed).
+  customerSync:
+    handler: src/controllers/customerTriggerController.sync
+    vpc: ${self:custom.vpc}
+
+  getMe:
+    handler: src/controllers/customerController.me
+    vpc: ${self:custom.vpc}
+    events:
+      - httpApi:
+          path: /me
+          method: GET
+          authorizer:
+            name: customerAuthorizer
 
   adminListProducts:
     handler: src/controllers/adminProductController.list

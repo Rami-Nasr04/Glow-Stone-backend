@@ -8,10 +8,13 @@ const EMAIL_SHAPE = /^[^@\s]+@[^@\s]+\.[^@\s]+$/
 
 const badEmail = { error: BAD_EMAIL }
 
+// Also the customers table's rule (005_customers.sql): customer emails are stored the same way.
+export const emailField = z.string(badEmail).trim().toLowerCase().max(254, badEmail).regex(EMAIL_SHAPE, badEmail)
+
 // POST /subscribers. rejoin = the person asked for news (footer, "notify me"), so an earlier unsubscribe is undone.
 // website = the hidden spam trap: people never see it, so it stays empty.
 export const subscribeSchema = z.strictObject({
-  email: z.string(badEmail).trim().toLowerCase().max(254, badEmail).regex(EMAIL_SHAPE, badEmail),
+  email: emailField,
   rejoin: z.boolean().default(false),
   website: z.string().max(500).default(""),
 })
