@@ -5,6 +5,7 @@ import {
   ForbiddenError,
   InvalidBodyError,
   NotFoundError,
+  OrderRefusedError,
   UnauthorizedError,
   UpstreamError,
   ValidationError,
@@ -18,8 +19,8 @@ export function ok<T>(data: T, statusCode = 200): APIGatewayProxyStructuredResul
   return { statusCode, headers: JSON_HEADERS, body: JSON.stringify(body) }
 }
 
-export function fail(code: string, message: string, statusCode = 400): APIGatewayProxyStructuredResultV2 {
-  const body: ApiResponse<never> = { success: false, error: { code, message } }
+export function fail(code: string, message: string, statusCode = 400, productId?: number): APIGatewayProxyStructuredResultV2 {
+  const body: ApiResponse<never> = { success: false, error: productId === undefined ? { code, message } : { code, message, productId } }
   return { statusCode, headers: JSON_HEADERS, body: JSON.stringify(body) }
 }
 
@@ -53,6 +54,11 @@ const PG_ERROR_MAP: Record<string, MappedError> = {
 const PG_CONSTRAINT_MAP: Record<string, MappedError> = {
   remaining_within_edition: { code: "VALIDATION", message: "remaining can't be more than editionSize", status: 400 },
   products_published_name_unique: { code: "CONFLICT", message: "A published piece already has that name", status: 409 },
+  order_items_product_id_fkey: {
+    code: "CONFLICT",
+    message: "This piece has orders, so it can't be deleted. Keep it as a draft instead.",
+    status: 409,
+  },
 }
 
 function isPgError(err: unknown): err is { code: string; constraint?: string } {
@@ -68,6 +74,7 @@ export function handleError(err: unknown): APIGatewayProxyStructuredResultV2 {
   if (err instanceof ForbiddenError) return fail("FORBIDDEN", err.message, 403)
   if (err instanceof NotFoundError) return fail("NOT_FOUND", err.message, 404)
   if (err instanceof ConflictError) return fail("CONFLICT", err.message, 409)
+  if (err instanceof OrderRefusedError) return fail(err.code, err.message, 409, err.productId)
   if (err instanceof UpstreamError) return fail(err.code, err.message, 502)
   if (err instanceof Error && err.name in COGNITO_ERROR_MAP) {
     const m = COGNITO_ERROR_MAP[err.name]

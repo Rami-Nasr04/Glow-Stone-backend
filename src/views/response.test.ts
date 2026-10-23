@@ -5,6 +5,7 @@ import {
   ForbiddenError,
   InvalidBodyError,
   NotFoundError,
+  OrderRefusedError,
   UnauthorizedError,
   ValidationError,
 } from "../lib/errors"
@@ -51,6 +52,27 @@ describe("handleError()", () => {
     const r = handleError(err)
     expect(r.statusCode).toBe(status)
     expect(body(r).error.code).toBe(code)
+  })
+
+  it("maps an order refusal to 409 with its own code and the piece it is about", () => {
+    const r = handleError(new OrderRefusedError("PRICE_CHANGED", "The price of Qadisha has changed. Please check your cart.", 5))
+    expect(r.statusCode).toBe(409)
+    expect(body(r).error).toEqual({
+      code: "PRICE_CHANGED",
+      message: "The price of Qadisha has changed. Please check your cart.",
+      productId: 5,
+    })
+  })
+
+  it("leaves productId out of an order refusal that isn't about one piece", () => {
+    const r = handleError(new OrderRefusedError("ORDER_LIMIT", "For larger orders, please contact Omar."))
+    expect(body(r).error).toEqual({ code: "ORDER_LIMIT", message: "For larger orders, please contact Omar." })
+  })
+
+  it("explains why a piece with orders can't be deleted", () => {
+    const r = handleError({ code: "23503", constraint: "order_items_product_id_fkey" })
+    expect(r.statusCode).toBe(409)
+    expect(body(r).error.message).toBe("This piece has orders, so it can't be deleted. Keep it as a draft instead.")
   })
 
   it("maps ConflictError to 409 CONFLICT with its own message", () => {

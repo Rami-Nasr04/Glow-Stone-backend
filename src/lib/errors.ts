@@ -35,6 +35,19 @@ export class ConflictError extends Error {
   }
 }
 
+// An order refused because of the shop's state (UNAVAILABLE, PRICE_CHANGED, ORDER_LIMIT). Mapped to 409 with its
+// own code; productId names the cart line it is about, when it is about one.
+export class OrderRefusedError extends Error {
+  constructor(
+    readonly code: "UNAVAILABLE" | "PRICE_CHANGED" | "ORDER_LIMIT",
+    message: string,
+    readonly productId?: number,
+  ) {
+    super(message)
+    this.name = "OrderRefusedError"
+  }
+}
+
 export class NotFoundError extends Error {
   constructor(message = "Not found") {
     super(message)

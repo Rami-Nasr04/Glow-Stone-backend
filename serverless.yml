@@ -187,6 +187,47 @@ functions:
           authorizer:
             name: customerAuthorizer
 
+  # Orders: placing, cancelling and reading a customer's own. Place and cancel run one transaction each.
+  placeOrder:
+    handler: src/controllers/orderController.place
+    vpc: ${self:custom.vpc}
+    events:
+      - httpApi:
+          path: /orders
+          method: POST
+          authorizer:
+            name: customerAuthorizer
+
+  listMyOrders:
+    handler: src/controllers/orderController.list
+    vpc: ${self:custom.vpc}
+    events:
+      - httpApi:
+          path: /me/orders
+          method: GET
+          authorizer:
+            name: customerAuthorizer
+
+  getMyOrder:
+    handler: src/controllers/orderController.get
+    vpc: ${self:custom.vpc}
+    events:
+      - httpApi:
+          path: /me/orders/{id}
+          method: GET
+          authorizer:
+            name: customerAuthorizer
+
+  cancelMyOrder:
+    handler: src/controllers/orderController.cancel
+    vpc: ${self:custom.vpc}
+    events:
+      - httpApi:
+          path: /me/orders/{id}/cancel
+          method: POST
+          authorizer:
+            name: customerAuthorizer
+
   adminListProducts:
     handler: src/controllers/adminProductController.list
     vpc: ${self:custom.vpc}

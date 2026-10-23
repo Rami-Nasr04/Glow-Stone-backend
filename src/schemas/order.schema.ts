@@ -1,0 +1,58 @@
+import { z } from "zod"
+import { phoneField } from "./customer.schema"
+
+export const ORDER_MESSAGES = {
+  emptyCart: "Your cart is empty.",
+  pieceTwice: "Each piece can only be in the order once.",
+  recipientName: "Please enter the recipient's name (up to 100 characters).",
+  city: "Please enter the city (up to 100 characters).",
+  address: "Please enter the address (up to 300 characters).",
+  deliveryNotes: "Delivery notes can be up to 500 characters.",
+  giftMessage: "The card message can be up to 200 characters.",
+  giftOnly: "Card messages are only for gifts.",
+} as const
+
+const requiredText = (max: number, message: string) => z.string({ error: message }).trim().min(1, message).max(max, message)
+
+// Trimmed; "" (or only spaces), null and left out all mean none, stored as null.
+const optionalText = (max: number, message: string) =>
+  z
+    .string({ error: message })
+    .trim()
+    .max(max, message)
+    .nullish()
+    .transform((v) => v || null)
+
+const itemSchema = z.strictObject({
+  productId: z.number().int().positive(),
+  // The 5-piece limit is checked with the customer's other pending orders (ORDER_LIMIT); this only keeps numbers sane.
+  quantity: z.number().int().min(1).max(100),
+  // The price the cart showed; the order is refused if the piece's price has changed since.
+  unitPrice: z.number().positive(),
+})
+
+// POST /orders. The same rules as the orders table (006_orders.sql), with the shop's messages.
+export const placeOrderSchema = z
+  .strictObject({
+    items: z
+      .array(itemSchema)
+      .min(1, ORDER_MESSAGES.emptyCart)
+      .max(20)
+      .refine((items) => new Set(items.map((i) => i.productId)).size === items.length, ORDER_MESSAGES.pieceTwice),
+    // null = the account holder receives it.
+    recipient: z
+      .strictObject({
+        name: requiredText(100, ORDER_MESSAGES.recipientName),
+        phone: phoneField,
+      })
+      .nullable()
+      .default(null),
+    city: requiredText(100, ORDER_MESSAGES.city),
+    address: requiredText(300, ORDER_MESSAGES.address),
+    deliveryNotes: optionalText(500, ORDER_MESSAGES.deliveryNotes),
+    isGift: z.boolean().default(false),
+    giftMessage: optionalText(200, ORDER_MESSAGES.giftMessage),
+  })
+  .refine((order) => order.giftMessage === null || order.isGift, { message: ORDER_MESSAGES.giftOnly, path: ["giftMessage"] })
+
+export type PlaceOrderInput = z.infer<typeof placeOrderSchema>
