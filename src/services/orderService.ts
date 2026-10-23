@@ -1,10 +1,11 @@
 import { withTransaction } from "../lib/db"
-import { ConflictError, ForbiddenError, NotFoundError, OrderRefusedError } from "../lib/errors"
+import { ConflictError, ForbiddenError, NotFoundError, OrderRefusedError, RequestReusedError } from "../lib/errors"
 import {
   cancelOrder,
   countPendingPieces,
   findCustomerOrders,
   findOrder,
+  findOrderIdByRequest,
   findOrderLines,
   insertOrder,
   lockCustomer,
@@ -14,7 +15,7 @@ import {
   type OrderRow,
 } from "../models/orderModel"
 import { findProductImages } from "../models/productImageModel"
-import { ORDER_NOT_FOUND, type PlaceOrderInput } from "../schemas/order.schema"
+import { ORDER_MESSAGES, ORDER_NOT_FOUND, type PlaceOrderInput } from "../schemas/order.schema"
 import type { ProductImage } from "../types/catalog"
 import type { Order, OrderSummary } from "../types/order"
 import { NO_CUSTOMER_ROW } from "./customerService"
@@ -38,12 +39,24 @@ const money = (amountInCents: number) => amountInCents / 100
 // GS-0007. padStart never cuts a longer number (GS-12345).
 export const orderNumber = (id: number) => `GS-${String(id).padStart(4, "0")}`
 
+// repeat = this key's order was already made (the shop sent it again after a lost answer): nothing new was saved,
+// so no emails go out.
+export interface PlacedOrder {
+  order: Order
+  repeat: boolean
+}
+
 // Places the order in one transaction: the customer and the pieces are locked, every rule is checked, then the
 // order, its lines and the stock change are written together. Anything refused = nothing saved.
-export async function placeOrder(customerId: string, input: PlaceOrderInput): Promise<Order> {
+// The key is checked first, before the 5-piece limit, so a repeat of an order that is already placed is never
+// refused for its own pieces.
+export async function placeOrder(customerId: string, input: PlaceOrderInput): Promise<PlacedOrder> {
   const items = [...input.items].sort((a, b) => a.productId - b.productId)
-  const orderId = await withTransaction(async (client) => {
+  const placed = await withTransaction(async (client) => {
     if (!(await lockCustomer(client, customerId))) throw new ForbiddenError(NO_CUSTOMER_ROW)
+
+    const existing = await findOrderIdByRequest(client, customerId, input.requestId)
+    if (existing !== null) return { orderId: existing, repeat: true }
 
     const pieces = items.reduce((sum, item) => sum + item.quantity, 0)
     if (pieces + (await countPendingPieces(client, customerId)) > MAX_PENDING_PIECES) {
@@ -67,8 +80,9 @@ export async function placeOrder(customerId: string, input: PlaceOrderInput): Pr
       }
     }
 
-    return insertOrder(client, {
+    const orderId = await insertOrder(client, {
       customerId,
+      requestId: input.requestId,
       recipientName: input.recipient?.name ?? null,
       recipientPhone: input.recipient?.phone ?? null,
       city: input.city,
@@ -79,8 +93,36 @@ export async function placeOrder(customerId: string, input: PlaceOrderInput): Pr
       // The price is the piece's own (equal to what the cart showed, checked above).
       items: items.map((i) => ({ productId: i.productId, quantity: i.quantity, unitPrice: products.get(i.productId)!.price })),
     })
+    return { orderId, repeat: false }
   })
-  return getOrder(customerId, orderId)
+  const order = await getOrder(customerId, placed.orderId)
+  if (placed.repeat && !isSameOrder(order, input)) throw new RequestReusedError(ORDER_MESSAGES.badLine)
+  return { order, repeat: placed.repeat }
+}
+
+// Is the order already made with this key the one now sent? Every field the customer chose is compared; the
+// status isn't (a repeat may arrive after Omar has confirmed it, or after a cancel, and still answers that order).
+function isSameOrder(order: Order, input: PlaceOrderInput): boolean {
+  const sent = [...input.items].sort((a, b) => a.productId - b.productId)
+  const made = [...order.items].sort((a, b) => a.productId - b.productId)
+  const sameItems =
+    sent.length === made.length &&
+    sent.every(
+      (s, i) => s.productId === made[i].productId && s.quantity === made[i].quantity && cents(s.unitPrice) === cents(made[i].unitPrice),
+    )
+  const sameRecipient =
+    input.recipient === null
+      ? order.recipient.isAccountHolder
+      : !order.recipient.isAccountHolder && input.recipient.name === order.recipient.name && input.recipient.phone === order.recipient.phone
+  return (
+    sameItems &&
+    sameRecipient &&
+    input.city === order.city &&
+    input.address === order.address &&
+    input.deliveryNotes === order.deliveryNotes &&
+    input.isGift === order.isGift &&
+    input.giftMessage === order.giftMessage
+  )
 }
 
 // Each piece's cover photo (its first), by product id.

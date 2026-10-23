@@ -9,8 +9,9 @@ export const run = async (request: OrdersDbRequest): Promise<OrdersDbResult> => 
   try {
     switch (request.op) {
       case "place": {
-        const order = await placeOrder(request.customerId, request.input)
-        return { ok: true, data: { order, admin: await getAdminOrder(order.id) } }
+        const { order, repeat } = await placeOrder(request.customerId, request.input)
+        const data = { order, admin: await getAdminOrder(order.id) }
+        return { ok: true, data: repeat ? { ...data, repeat } : data }
       }
       case "customerCancel": {
         const order = await cancelCustomerOrder(request.customerId, request.orderId)

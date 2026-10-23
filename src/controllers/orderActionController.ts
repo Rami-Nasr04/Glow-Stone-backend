@@ -11,13 +11,14 @@ import { handleError, ok } from "../views/response"
 // body are checked here, the database part runs in the private ordersDb function, and the emails go after it commits.
 
 // POST /orders: 201 with the order; the customer gets "order received" and every admin the new-order alert.
+// A repeat (the same requestId sent again) answers the same 201 and emails nobody: the first one already did.
 export const place = async (event: APIGatewayProxyEventV2): Promise<APIGatewayProxyStructuredResultV2> => {
   try {
     const { sub } = requireCustomer(event)
     const input = placeOrderSchema.parse(parseBody(event))
     const result = await callOrdersDb({ op: "place", customerId: sub, input })
     if (!result.ok) return result.response
-    await notifyOrderPlaced(result.data.admin)
+    if (!result.data.repeat) await notifyOrderPlaced(result.data.admin)
     return ok(result.data.order, 201)
   } catch (err) {
     return handleError(err)

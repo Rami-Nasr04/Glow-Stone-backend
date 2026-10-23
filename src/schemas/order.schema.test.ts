@@ -3,6 +3,7 @@ import { BAD_PHONE } from "./customer.schema"
 import { ORDER_MESSAGES, placeOrderSchema } from "./order.schema"
 
 const valid = {
+  requestId: "8e03978e-40d5-43e8-bc93-6894a57f9324",
   items: [{ productId: 5, quantity: 2, unitPrice: 890 }],
   recipient: null,
   city: "Jounieh",
@@ -23,8 +24,9 @@ describe("placeOrderSchema", () => {
   })
 
   it("defaults recipient, notes, gift and card message when left out", () => {
-    const { items, city, address } = valid
-    expect(placeOrderSchema.parse({ items, city, address })).toEqual({
+    const { requestId, items, city, address } = valid
+    expect(placeOrderSchema.parse({ requestId, items, city, address })).toEqual({
+      requestId,
       items,
       city,
       address,
@@ -38,6 +40,18 @@ describe("placeOrderSchema", () => {
   it("trims texts and turns empty optional ones into null", () => {
     const parsed = placeOrderSchema.parse({ ...valid, city: " Jounieh ", deliveryNotes: "   ", giftMessage: "" })
     expect(parsed).toMatchObject({ city: "Jounieh", deliveryNotes: null, giftMessage: null })
+  })
+
+  it("lower-cases the order key, so the same key in capitals is the same key", () => {
+    expect(placeOrderSchema.parse({ ...valid, requestId: valid.requestId.toUpperCase() }).requestId).toBe(valid.requestId)
+  })
+
+  it.each([
+    ["no order key", { requestId: undefined }],
+    ["an order key that isn't a UUID", { requestId: "order-1" }],
+    ["a number as the key", { requestId: 7 }],
+  ])("refuses %s, in the shop's words", (_label, change) => {
+    expect(message({ ...valid, ...change })).toBe(ORDER_MESSAGES.badLine)
   })
 
   it("accepts someone else as the recipient, trimming the name", () => {

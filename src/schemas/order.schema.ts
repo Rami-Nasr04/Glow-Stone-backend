@@ -44,6 +44,9 @@ const itemSchema = z.strictObject(
 // POST /orders. The same rules as the orders table (006_orders.sql), with the shop's messages.
 export const placeOrderSchema = z
   .strictObject({
+    // The shop's random key for this order attempt (crypto.randomUUID()). Sending the same order again with the
+    // same key answers the order already made instead of making a second one (007_order_request_id.sql).
+    requestId: z.uuid(badLine).transform((id) => id.toLowerCase()),
     items: z
       .array(itemSchema, badLine)
       .min(1, ORDER_MESSAGES.emptyCart)

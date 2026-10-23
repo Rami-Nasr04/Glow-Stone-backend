@@ -6,6 +6,7 @@ import {
   InvalidBodyError,
   NotFoundError,
   OrderRefusedError,
+  RequestReusedError,
   UnauthorizedError,
   UpstreamError,
   ValidationError,
@@ -75,6 +76,7 @@ export function handleError(err: unknown): APIGatewayProxyStructuredResultV2 {
   if (err instanceof NotFoundError) return fail("NOT_FOUND", err.message, 404)
   if (err instanceof ConflictError) return fail("CONFLICT", err.message, 409)
   if (err instanceof OrderRefusedError) return fail(err.code, err.message, 409, err.productId)
+  if (err instanceof RequestReusedError) return fail("REQUEST_REUSED", err.message, 422)
   if (err instanceof UpstreamError) return fail(err.code, err.message, 502)
   if (err instanceof Error && err.name in COGNITO_ERROR_MAP) {
     const m = COGNITO_ERROR_MAP[err.name]

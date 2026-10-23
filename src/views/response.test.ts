@@ -6,6 +6,7 @@ import {
   InvalidBodyError,
   NotFoundError,
   OrderRefusedError,
+  RequestReusedError,
   UnauthorizedError,
   ValidationError,
 } from "../lib/errors"
@@ -67,6 +68,12 @@ describe("handleError()", () => {
   it("leaves productId out of an order refusal that isn't about one piece", () => {
     const r = handleError(new OrderRefusedError("ORDER_LIMIT", "For larger orders, please contact Omar."))
     expect(body(r).error).toEqual({ code: "ORDER_LIMIT", message: "For larger orders, please contact Omar." })
+  })
+
+  it("maps an order key sent with a different order to 422 REQUEST_REUSED", () => {
+    const r = handleError(new RequestReusedError("Please check your cart and try again."))
+    expect(r.statusCode).toBe(422)
+    expect(body(r).error).toEqual({ code: "REQUEST_REUSED", message: "Please check your cart and try again." })
   })
 
   it("explains why a piece with orders can't be deleted", () => {

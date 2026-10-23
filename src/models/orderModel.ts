@@ -63,6 +63,7 @@ export interface StockRow {
 
 export interface NewOrder {
   customerId: string
+  requestId: string
   recipientName: string | null
   recipientPhone: string | null
   city: string
@@ -80,6 +81,16 @@ export interface NewOrder {
 export async function lockCustomer(client: PoolClient, customerId: string): Promise<boolean> {
   const { rowCount } = await client.query("select 1 from customers where id = $1 for update", [customerId])
   return rowCount === 1
+}
+
+// The customer's order already made with this key; null = none yet. Read after lockCustomer, so a repeat that
+// arrives while the first is still being placed waits for it and then finds it.
+export async function findOrderIdByRequest(client: PoolClient, customerId: string, requestId: string): Promise<number | null> {
+  const { rows } = await client.query<{ id: number }>("select id from orders where customer_id = $1 and request_id = $2", [
+    customerId,
+    requestId,
+  ])
+  return rows[0]?.id ?? null
 }
 
 // Pieces in the customer's pending orders.
@@ -105,10 +116,11 @@ export async function lockProducts(client: PoolClient, productIds: number[]): Pr
 
 export async function insertOrder(client: PoolClient, order: NewOrder): Promise<number> {
   const { rows } = await client.query<{ id: number }>(
-    `insert into orders (customer_id, recipient_name, recipient_phone, city, address, delivery_notes, is_gift, gift_message)
-     values ($1, $2, $3, $4, $5, $6, $7, $8) returning id`,
+    `insert into orders (customer_id, request_id, recipient_name, recipient_phone, city, address, delivery_notes, is_gift, gift_message)
+     values ($1, $2, $3, $4, $5, $6, $7, $8, $9) returning id`,
     [
       order.customerId,
+      order.requestId,
       order.recipientName,
       order.recipientPhone,
       order.city,

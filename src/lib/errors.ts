@@ -48,6 +48,15 @@ export class OrderRefusedError extends Error {
   }
 }
 
+// The same order key sent with a different order (the shop makes a new key whenever the cart or the delivery
+// details change, so only a shop bug gets here). Mapped to 422, as in the IETF Idempotency-Key draft.
+export class RequestReusedError extends Error {
+  constructor(message: string) {
+    super(message)
+    this.name = "RequestReusedError"
+  }
+}
+
 export class NotFoundError extends Error {
   constructor(message = "Not found") {
     super(message)

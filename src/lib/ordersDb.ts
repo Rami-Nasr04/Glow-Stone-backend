@@ -18,6 +18,8 @@ export type OrdersDbRequest =
 export interface OrdersDbData {
   order: Order
   admin: AdminOrder
+  // Only on "place": the order was already made with this key, so the route sends no emails.
+  repeat?: true
 }
 
 // A refusal comes back as the exact API answer (the database side ran it through handleError), so the route

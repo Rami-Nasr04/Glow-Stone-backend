@@ -28,7 +28,7 @@ const body = (res: { body?: string }) => JSON.parse(res.body ?? "")
 
 const order = { id: 7, number: "GS-0007", status: "pending", canCancel: true } as Order
 const admin = { ...order, canCancel: true, customer: { id: SUB, email: "sara@example.com", name: "Sara", phone: "+96171234567" } } as AdminOrder
-const validBody = { items: [{ productId: 5, quantity: 1, unitPrice: 890 }], city: "Jounieh", address: "Main road" }
+const validBody = { requestId: "8e03978e-40d5-43e8-bc93-6894a57f9324", items: [{ productId: 5, quantity: 1, unitPrice: 890 }], city: "Jounieh", address: "Main road" }
 const refusal = fail("UNAVAILABLE", "Nahr is sold out.", 409, 2)
 
 beforeEach(() => {
@@ -56,6 +56,14 @@ describe("POST /orders", () => {
       input: { ...validBody, recipient: null, deliveryNotes: null, isGift: false, giftMessage: null },
     })
     expect(notifyOrderPlaced).toHaveBeenCalledWith(admin)
+  })
+
+  it("answers a repeat (same requestId) with the same 201 and emails nobody again", async () => {
+    vi.mocked(callOrdersDb).mockResolvedValue({ ok: true, data: { order, admin, repeat: true } })
+    const res = await place(event({ body: validBody, claims: customerClaims }))
+    expect(res.statusCode).toBe(201)
+    expect(body(res).data).toEqual(order)
+    expect(notifyOrderPlaced).not.toHaveBeenCalled()
   })
 
   it("answers a refusal exactly as ordersDb gave it, and emails nobody", async () => {
