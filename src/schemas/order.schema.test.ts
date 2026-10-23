@@ -65,6 +65,16 @@ describe("placeOrderSchema", () => {
   })
 
   it.each([
+    ["a quantity of 0", { quantity: 0 }],
+    ["half a piece", { quantity: 1.5 }],
+    ["a price of 0", { unitPrice: 0 }],
+    ["a text product id", { productId: "5" }],
+    ["an unknown key on a line", { name: "Qadisha" }],
+  ])("refuses a line with %s, in the shop's words", (_label, change) => {
+    expect(message({ ...valid, items: [{ ...valid.items[0], ...change }] })).toBe(ORDER_MESSAGES.badLine)
+  })
+
+  it.each([
     ["an unknown key", { ...valid, total: 0 }],
     ["an unknown key on a line", { ...valid, items: [{ ...valid.items[0], name: "Qadisha" }] }],
     ["a quantity of 0", { ...valid, items: [{ ...valid.items[0], quantity: 0 }] }],

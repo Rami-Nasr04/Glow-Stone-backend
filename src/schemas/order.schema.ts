@@ -6,6 +6,8 @@ export const ORDER_NOT_FOUND = "Order not found"
 
 export const ORDER_MESSAGES = {
   emptyCart: "Your cart is empty.",
+  // A line the shop never sends (bad id, quantity or price): something is off in the cart, not in what the customer typed.
+  badLine: "Please check your cart and try again.",
   pieceTwice: "Each piece can only be in the order once.",
   recipientName: "Please enter the recipient's name (up to 100 characters).",
   city: "Please enter the city (up to 100 characters).",
@@ -26,21 +28,26 @@ const optionalText = (max: number, message: string) =>
     .nullish()
     .transform((v) => v || null)
 
-const itemSchema = z.strictObject({
-  productId: z.number().int().positive(),
-  // The 5-piece limit is checked with the customer's other pending orders (ORDER_LIMIT); this only keeps numbers sane.
-  quantity: z.number().int().min(1).max(100),
-  // The price the cart showed; the order is refused if the piece's price has changed since.
-  unitPrice: z.number().positive(),
-})
+const badLine = { error: ORDER_MESSAGES.badLine }
+
+const itemSchema = z.strictObject(
+  {
+    productId: z.number(badLine).int(badLine).positive(badLine),
+    // The 5-piece limit is checked with the customer's other pending orders (ORDER_LIMIT); this only keeps numbers sane.
+    quantity: z.number(badLine).int(badLine).min(1, badLine).max(100, badLine),
+    // The price the cart showed; the order is refused if the piece's price has changed since.
+    unitPrice: z.number(badLine).positive(badLine),
+  },
+  badLine,
+)
 
 // POST /orders. The same rules as the orders table (006_orders.sql), with the shop's messages.
 export const placeOrderSchema = z
   .strictObject({
     items: z
-      .array(itemSchema)
+      .array(itemSchema, badLine)
       .min(1, ORDER_MESSAGES.emptyCart)
-      .max(20)
+      .max(20, badLine)
       .refine((items) => new Set(items.map((i) => i.productId)).size === items.length, ORDER_MESSAGES.pieceTwice),
     // null = the account holder receives it.
     recipient: z
