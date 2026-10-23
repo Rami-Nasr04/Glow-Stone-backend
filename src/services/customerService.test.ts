@@ -3,7 +3,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest"
 import { ForbiddenError } from "../lib/errors"
 import { findCustomer, insertCustomer } from "../models/customerModel"
 import { BAD_PHONE } from "../schemas/customer.schema"
-import { checkSignUp, getMe, NO_CUSTOMER_ROW, syncCustomer } from "./customerService"
+import { checkSignUp, EMAIL_NOT_VERIFIED, getMe, NO_CUSTOMER_ROW, syncCustomer } from "./customerService"
 
 vi.mock("../models/customerModel")
 
@@ -28,6 +28,11 @@ describe("syncCustomer()", () => {
   it("makes the row with the sub, a lowercased email and a trimmed name", async () => {
     await syncCustomer(SUB, attributes)
     expect(insertCustomer).toHaveBeenCalledWith({ id: SUB, email: "sara@example.com", name: "Sara Khoury", phone: "+96171234567" })
+  })
+
+  it.each([["false"], [undefined]])("throws, saving nothing, when email_verified is %s", async (verified) => {
+    await expect(syncCustomer(SUB, { ...attributes, email_verified: verified })).rejects.toThrow(EMAIL_NOT_VERIFIED)
+    expect(insertCustomer).not.toHaveBeenCalled()
   })
 
   it("throws, saving nothing, when the attributes break the rules", async () => {

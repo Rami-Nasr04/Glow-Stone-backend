@@ -7,10 +7,11 @@ export interface CustomerRow {
   phone: string
 }
 
-// Makes the customer's row once. The sign-up triggers run it again on every sign-in, so an existing row
-// (same sub, or the same email) is left exactly as it is.
+// Makes the customer's row once. The sign-up triggers run it again on every sign-in, so an existing row is left
+// exactly as it is. Only the same sub counts as existing: the same email under another sub (an account deleted
+// and made again) is a unique-key error, so it shows in the logs instead of passing silently.
 export async function insertCustomer(customer: CustomerRow): Promise<void> {
-  await executeQuery("insert into customers (id, email, name, phone) values ($1, $2, $3, $4) on conflict do nothing", [
+  await executeQuery("insert into customers (id, email, name, phone) values ($1, $2, $3, $4) on conflict (id) do nothing", [
     customer.id,
     customer.email,
     customer.name,

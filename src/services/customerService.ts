@@ -10,8 +10,12 @@ export function checkSignUp(attributes: Record<string, string | undefined>): voi
   cognitoCustomerSchema.parse(attributes)
 }
 
+export const EMAIL_NOT_VERIFIED = "Email not verified"
+
 // After the email is confirmed, and again on every sign-in: makes the customers row if it isn't there yet.
+// Only for a verified email: order emails go there, and nobody may hold an address they can't read.
 export async function syncCustomer(sub: string, attributes: Record<string, string | undefined>): Promise<void> {
+  if (attributes.email_verified !== "true") throw new Error(EMAIL_NOT_VERIFIED)
   const { email, name, phone_number } = cognitoCustomerSchema.parse(attributes)
   await insertCustomer({ id: sub, email, name, phone: phone_number })
 }
