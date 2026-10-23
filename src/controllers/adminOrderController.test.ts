@@ -1,9 +1,6 @@
 import type { APIGatewayProxyEventV2 } from "aws-lambda"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
-import { ConflictError } from "../lib/errors"
 import {
-  advanceOrder,
-  cancelAdminOrder,
   changeDeliveryFee,
   getAdminCustomer,
   getAdminOrder,
@@ -11,14 +8,12 @@ import {
   listAdminOrders,
 } from "../services/adminOrderService"
 import type { AdminOrder } from "../types/order"
-import { advance, cancel, get, getCustomer, list, listCustomers, update } from "./adminOrderController"
+import { get, getCustomer, list, listCustomers, update } from "./adminOrderController"
 
 vi.mock("../services/adminOrderService", async (importOriginal) => {
   const real = await importOriginal<typeof import("../services/adminOrderService")>()
   return {
     ...real,
-    advanceOrder: vi.fn(),
-    cancelAdminOrder: vi.fn(),
     changeDeliveryFee: vi.fn(),
     getAdminCustomer: vi.fn(),
     getAdminOrder: vi.fn(),
@@ -45,8 +40,6 @@ const anOrder = { id: 7, number: "GS-0007", status: "confirmed" } as AdminOrder
 const SARA = "1b5c2a4e-8f0d-4c3b-9a71-2e6d5f8a9b10"
 
 beforeEach(() => {
-  vi.mocked(advanceOrder).mockReset()
-  vi.mocked(cancelAdminOrder).mockReset()
   vi.mocked(changeDeliveryFee).mockReset()
   vi.mocked(getAdminCustomer).mockReset()
   vi.mocked(getAdminOrder).mockReset()
@@ -63,7 +56,7 @@ afterEach(() => {
 
 describe("studio order routes", () => {
   it("refuse a customer's token", async () => {
-    for (const handler of [list, get, advance, cancel, update, listCustomers, getCustomer]) {
+    for (const handler of [list, get, update, listCustomers, getCustomer]) {
       expect((await handler(event({ id: "7", claims: customerClaims }))).statusCode).toBe(401)
     }
     expect(listAdminOrders).not.toHaveBeenCalled()
@@ -88,27 +81,6 @@ describe("studio order routes", () => {
     expect(body(await get(event({ id: "7" }))).data).toEqual(anOrder)
     expect(getAdminOrder).toHaveBeenCalledWith(7)
     expect((await get(event({ id: "x" }))).statusCode).toBe(404)
-  })
-
-  it("POST /admin/orders/{id}/status moves it forward, and answers 409 with the reason", async () => {
-    vi.mocked(advanceOrder).mockResolvedValue(anOrder)
-    expect((await advance(event({ id: "7", body: { status: "confirmed" } }))).statusCode).toBe(200)
-    expect(advanceOrder).toHaveBeenCalledWith(7, "confirmed")
-    vi.mocked(advanceOrder).mockRejectedValue(new ConflictError("Confirm the order first."))
-    const res = await advance(event({ id: "7", body: { status: "delivered" } }))
-    expect(res.statusCode).toBe(409)
-    expect(body(res).error).toEqual({ code: "CONFLICT", message: "Confirm the order first." })
-  })
-
-  it("POST /admin/orders/{id}/status refuses cancelled (it has its own route)", async () => {
-    expect((await advance(event({ id: "7", body: { status: "cancelled" } }))).statusCode).toBe(400)
-    expect(advanceOrder).not.toHaveBeenCalled()
-  })
-
-  it("POST /admin/orders/{id}/cancel cancels", async () => {
-    vi.mocked(cancelAdminOrder).mockResolvedValue({ ...anOrder, status: "cancelled" })
-    expect((await cancel(event({ id: "7" }))).statusCode).toBe(200)
-    expect(cancelAdminOrder).toHaveBeenCalledWith(7)
   })
 
   it("PATCH /admin/orders/{id} sets the fee, and refuses a bad one", async () => {

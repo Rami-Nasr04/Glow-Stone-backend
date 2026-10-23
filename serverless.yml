@@ -68,6 +68,18 @@ provider:
         - Effect: Allow
           Action: s3:ListBucket
           Resource: arn:aws:s3:::${env:IMAGES_BUCKET}
+        # The order routes outside the VPC call the private orders function for their database part...
+        - Effect: Allow
+          Action: lambda:InvokeFunction
+          Resource: arn:aws:lambda:${self:provider.region}:${aws:accountId}:function:${self:service}-${sls:stage}-ordersDb
+        # ...then send the order emails from the shop's verified domain only...
+        - Effect: Allow
+          Action: ses:SendEmail
+          Resource: arn:aws:ses:${self:provider.region}:${aws:accountId}:identity/glowstonelb.com
+        # ...and read the admin pool's users for the new-order alert.
+        - Effect: Allow
+          Action: cognito-idp:ListUsers
+          Resource: arn:aws:cognito-idp:${self:provider.region}:${aws:accountId}:userpool/${env:ADMIN_USER_POOL_ID}
   environment:
     NODE_EXTRA_CA_CERTS: /var/runtime/ca-cert.pem
     DB_HOST: ${env:DB_HOST}
@@ -84,6 +96,12 @@ provider:
     # The photos bucket and the CloudFront address in front of it (not secrets).
     IMAGES_BUCKET: ${env:IMAGES_BUCKET}
     CDN_URL: ${env:CDN_URL}
+    # Order emails (not secrets): the sender, where replies go, and the links inside them.
+    EMAIL_FROM: Glowstone <noreply@glowstonelb.com>
+    EMAIL_REPLY_TO: glowstone216@gmail.com
+    SITE_URL: https://glowstonelb.com
+    STUDIO_URL: https://studio.glowstonelb.com
+    ORDERS_DB_FUNCTION: ${self:service}-${sls:stage}-ordersDb
   httpApi:
     cors:
       allowedOrigins:
@@ -187,10 +205,18 @@ functions:
           authorizer:
             name: customerAuthorizer
 
-  # Orders: placing, cancelling and reading a customer's own. Place and cancel run one transaction each.
-  placeOrder:
-    handler: src/controllers/orderController.place
+  # The private orders function: the database part of every order route that sends emails. No HTTP route; only
+  # those routes (outside the VPC, through IAM) invoke it.
+  ordersDb:
+    handler: src/controllers/ordersDbController.run
     vpc: ${self:custom.vpc}
+    timeout: 15
+
+  # Orders that send emails run outside the VPC (SES and Cognito need the internet; the VPC has none, at $0) and
+  # call ordersDb for the database part. Long enough for a cold ordersDb plus the emails.
+  placeOrder:
+    handler: src/controllers/orderActionController.place
+    timeout: 25
     events:
       - httpApi:
           path: /orders
@@ -219,8 +245,8 @@ functions:
             name: customerAuthorizer
 
   cancelMyOrder:
-    handler: src/controllers/orderController.cancel
-    vpc: ${self:custom.vpc}
+    handler: src/controllers/orderActionController.cancel
+    timeout: 25
     events:
       - httpApi:
           path: /me/orders/{id}/cancel
@@ -365,8 +391,8 @@ functions:
             name: adminAuthorizer
 
   adminAdvanceOrder:
-    handler: src/controllers/adminOrderController.advance
-    vpc: ${self:custom.vpc}
+    handler: src/controllers/orderActionController.adminAdvance
+    timeout: 25
     events:
       - httpApi:
           path: /admin/orders/{id}/status
@@ -375,8 +401,8 @@ functions:
             name: adminAuthorizer
 
   adminCancelOrder:
-    handler: src/controllers/adminOrderController.cancel
-    vpc: ${self:custom.vpc}
+    handler: src/controllers/orderActionController.adminCancel
+    timeout: 25
     events:
       - httpApi:
           path: /admin/orders/{id}/cancel

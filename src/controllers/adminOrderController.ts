@@ -2,12 +2,10 @@ import type { APIGatewayProxyEventV2, APIGatewayProxyStructuredResultV2 } from "
 import { requireAdmin } from "../lib/auth"
 import { NotFoundError } from "../lib/errors"
 import { getPathParam, getQueryParam, parseBody } from "../lib/request"
-import { advanceOrderSchema, CUSTOMER_ID, deliveryFeeSchema, orderStatusFilterSchema } from "../schemas/adminOrder.schema"
+import { CUSTOMER_ID, deliveryFeeSchema, orderStatusFilterSchema } from "../schemas/adminOrder.schema"
 import { orderIdFromPath } from "../schemas/order.schema"
 import {
   ADMIN_ORDER_MESSAGES,
-  advanceOrder,
-  cancelAdminOrder,
   changeDeliveryFee,
   getAdminCustomer,
   getAdminOrder,
@@ -32,28 +30,6 @@ export const get = async (event: APIGatewayProxyEventV2): Promise<APIGatewayProx
   try {
     requireAdmin(event)
     return ok(await getAdminOrder(orderIdFromPath(getPathParam(event, "id"))))
-  } catch (err) {
-    return handleError(err)
-  }
-}
-
-// POST /admin/orders/{id}/status: one step forward.
-export const advance = async (event: APIGatewayProxyEventV2): Promise<APIGatewayProxyStructuredResultV2> => {
-  try {
-    requireAdmin(event)
-    const id = orderIdFromPath(getPathParam(event, "id"))
-    const { status } = advanceOrderSchema.parse(parseBody(event))
-    return ok(await advanceOrder(id, status))
-  } catch (err) {
-    return handleError(err)
-  }
-}
-
-// POST /admin/orders/{id}/cancel: any order before delivery; stock goes back.
-export const cancel = async (event: APIGatewayProxyEventV2): Promise<APIGatewayProxyStructuredResultV2> => {
-  try {
-    requireAdmin(event)
-    return ok(await cancelAdminOrder(orderIdFromPath(getPathParam(event, "id"))))
   } catch (err) {
     return handleError(err)
   }
