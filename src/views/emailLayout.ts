@@ -1,6 +1,7 @@
 // The design every Glowstone email shares (brief §6, the Emails prototype): a table layout up to 600 px wide that
 // narrows on phones (Outlook on Windows ignores max-width, so it gets a fixed 600 px table of its own), inline
-// styles, Georgia / Helvetica fallbacks, Frost Stone background, Charcoal text, a thin Wine rule.
+// styles, Georgia / Helvetica fallbacks, Frost Stone background, Charcoal text; Wine for the top bar, the dot in the name,
+// the small label, the rule under the title and the button.
 
 export interface RenderedEmail {
   subject: string
@@ -21,6 +22,9 @@ export const HAIRLINE = "#B5B4B0"
 export const SANS = "'Jost', Helvetica, Arial, sans-serif"
 export const SERIF = "'Cormorant Garamond', Georgia, serif"
 export const CONTACT_EMAIL = "glowstone216@gmail.com"
+
+// The name with a Wine dot between GLOW and STONE; the dot is hidden from screen readers so the name reads as one word.
+export const WORDMARK = `GLOW<span aria-hidden="true" style="color:${WINE};">&bull;</span>STONE`
 
 export const FOOTER_TEXT = `Made in Lebanon. Questions? Reply to this email or write to ${CONTACT_EMAIL}.`
 
@@ -54,7 +58,7 @@ export interface EmailParts {
 export function emailShell(parts: EmailParts): string {
   const button = parts.button
     ? row(
-        `<a href="${escapeHtml(parts.button.href)}" style="display:inline-block; padding:14px 28px; background:${CHARCOAL}; color:${STONE}; font-family:${SANS}; font-size:12px; letter-spacing:.24em; text-decoration:none;">${parts.button.label} →</a>`,
+        `<a href="${escapeHtml(parts.button.href)}" style="display:inline-block; padding:14px 28px; background:${WINE}; color:${STONE}; font-family:${SANS}; font-size:12px; letter-spacing:.24em; text-decoration:none;">${parts.button.label} →</a>`,
         "32px 48px 0",
       )
     : ""
@@ -64,8 +68,9 @@ export function emailShell(parts: EmailParts): string {
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background:${LIGHT_STONE};"><tr><td align="center" style="padding:24px 0;">
 <!--[if mso]><table role="presentation" width="600" cellpadding="0" cellspacing="0" border="0"><tr><td><![endif]-->
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="width:100%; max-width:600px; background:${CARD}; border-collapse:collapse;">
-<tr><td style="padding:40px 48px 28px; text-align:center; border-bottom:1px solid ${HAIRLINE}; font-family:${SERIF}; font-size:26px; letter-spacing:.32em; color:${CHARCOAL};">GLOWSTONE</td></tr>
-${row(sans(parts.kicker, 12, MUTED, " letter-spacing:.28em;"), "44px 48px 0")}
+<tr><td height="6" bgcolor="${WINE}" style="height:6px; background:${WINE}; font-size:0; line-height:0;">&nbsp;</td></tr>
+<tr><td style="padding:34px 48px 28px; text-align:center; border-bottom:1px solid ${HAIRLINE}; font-family:${SERIF}; font-size:26px; letter-spacing:.32em; color:${CHARCOAL};">${WORDMARK}</td></tr>
+${row(sans(parts.kicker, 12, WINE, " letter-spacing:.28em;"), "44px 48px 0")}
 ${row(`<div style="font-family:${SERIF}; font-weight:300; font-size:40px; line-height:1.15; color:${CHARCOAL};">${escapeHtml(parts.title)}</div>`, "14px 48px 0")}
 ${row(`<table role="presentation" cellpadding="0" cellspacing="0" border="0"><tr><td width="48" height="1" style="width:48px; height:1px; background:${WINE}; font-size:0; line-height:0;">&nbsp;</td></tr></table>`)}
 ${row(sans(escapeHtml(parts.body)))}

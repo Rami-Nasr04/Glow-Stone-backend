@@ -1,4 +1,4 @@
-import { CHARCOAL, emailShell, HAIRLINE, row, SANS } from "./emailLayout"
+import { CHARCOAL, emailShell, row, SANS, WINE } from "./emailLayout"
 
 // The customer pool's code emails (Cognito's custom message trigger), in the order emails' design. Cognito puts the
 // real code where `code` (its placeholder, "{####}") stands, and sends the HTML only (it has no text part).
@@ -36,7 +36,7 @@ const COPY: Record<CodeEmailKind, { subject: string; kicker: string; title: (fir
 // The code is in the sans font: the serif's old-style figures sit at uneven heights, harder to read and type.
 const codeBox = (code: string) =>
   row(
-    `<div style="display:inline-block; padding:18px 28px; border:1px solid ${HAIRLINE}; font-family:${SANS}; font-size:34px; letter-spacing:.3em; color:${CHARCOAL};">${code}</div>`,
+    `<div style="display:inline-block; padding:18px 28px; border:1px solid ${WINE}; font-family:${SANS}; font-size:34px; letter-spacing:.3em; color:${CHARCOAL};">${code}</div>`,
     "28px 48px 0",
   )
 
