@@ -1,6 +1,6 @@
 import { CognitoIdentityProviderClient, ListUsersCommand, type UserType } from "@aws-sdk/client-cognito-identity-provider"
 import { SendEmailCommand, SESv2Client } from "@aws-sdk/client-sesv2"
-import type { RenderedEmail } from "../views/orderEmails"
+import type { RenderedEmail } from "../views/emailLayout"
 import { requiredEnv } from "./env"
 
 let ses: SESv2Client | undefined

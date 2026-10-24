@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest"
 import type { AdminOrder, Order } from "../types/order"
-import { escapeHtml, formatMoney, formatPhone, renderCustomerEmail, renderNewOrderAlert, type CustomerEmailKind } from "./orderEmails"
+import { escapeHtml } from "./emailLayout"
+import { formatMoney, formatPhone, renderCustomerEmail, renderNewOrderAlert, type CustomerEmailKind } from "./orderEmails"
 
 const SITE = "https://glowstonelb.com"
 

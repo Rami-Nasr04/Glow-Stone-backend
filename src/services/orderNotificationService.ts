@@ -1,7 +1,8 @@
 import { listAdminEmails, sendEmail } from "../lib/email"
 import { requiredEnv } from "../lib/env"
 import type { AdminOrder } from "../types/order"
-import { renderCustomerEmail, renderNewOrderAlert, type CustomerEmailKind, type RenderedEmail } from "../views/orderEmails"
+import type { RenderedEmail } from "../views/emailLayout"
+import { renderCustomerEmail, renderNewOrderAlert, type CustomerEmailKind } from "../views/orderEmails"
 
 // Emails go after the database work is committed. A failed email is logged and never fails the request:
 // the order is already saved, and Omar calls every customer anyway.

@@ -1,36 +1,22 @@
 import type { AdminOrder, Order, OrderStatus } from "../types/order"
+import {
+  CHARCOAL,
+  emailShell,
+  escapeHtml,
+  FOOTER_TEXT,
+  HAIRLINE,
+  label,
+  MUTED,
+  row,
+  sans,
+  SERIF,
+  type RenderedEmail,
+} from "./emailLayout"
 
-// The order emails (brief §6, the Emails prototype): 600 px table layout, inline styles, Georgia / Helvetica
-// fallbacks, Frost Stone background, Charcoal text, a thin Wine rule. Every email also has a plain-text part.
+// The order emails, in the shared design (emailLayout.ts). Every email also has a plain-text part.
 // Wording follows the prototype; [Placeholder: …] marks what Omar still has to give.
 
-export interface RenderedEmail {
-  subject: string
-  html: string
-  text: string
-}
-
 export type CustomerEmailKind = Exclude<OrderStatus, "pending"> | "received"
-
-const STONE = "#C9C8C4"
-const LIGHT_STONE = "#D4D3CF"
-const CHARCOAL = "#2B2B2B"
-const MUTED = "#4D4C49"
-const WINE = "#5A2A32"
-const HAIRLINE = "#B5B4B0"
-const SANS = "'Jost', Helvetica, Arial, sans-serif"
-const SERIF = "'Cormorant Garamond', Georgia, serif"
-const CONTACT_EMAIL = "glowstone216@gmail.com"
-
-// Customer text (names, addresses, card messages) is escaped before it goes into the HTML.
-export function escapeHtml(value: string): string {
-  return value
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;")
-    .replace(/'/g, "&#39;")
-}
 
 // $890 · $1,200.50: cents only when there are some (as the shop shows prices).
 export function formatMoney(amount: number): string {
@@ -127,11 +113,6 @@ const TIPS = [
   "Lift with two people. Never drag the stone across the floor.",
 ]
 
-const row = (content: string, padding = "22px 48px 0") => `<tr><td style="padding:${padding};">${content}</td></tr>`
-const sans = (content: string, size = 16, color = CHARCOAL, extra = "") =>
-  `<div style="font-family:${SANS}; font-size:${size}px; line-height:1.7; color:${color};${extra}">${content}</div>`
-const label = (content: string) => sans(content, 12, MUTED, " letter-spacing:.24em;")
-
 function itemsHtml(order: Order): string {
   const lines = order.items
     .map((item) => {
@@ -153,9 +134,9 @@ function itemsHtml(order: Order): string {
     : ""
   return [
     row(label(`ORDER ${order.number}`), "28px 48px 0"),
-    row(`<table role="presentation" width="504" cellpadding="0" cellspacing="0" border="0" style="width:504px; border-collapse:collapse;">${lines}</table>`, "0 48px"),
+    row(`<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="width:100%; border-collapse:collapse;">${lines}</table>`, "0 48px"),
     row(
-      `<table role="presentation" width="504" cellpadding="0" cellspacing="0" border="0" style="width:504px;"><tr><td>${sans(`Delivery: ${fee}`, 14, MUTED)}</td><td style="text-align:right;">${sans(`Total ${formatMoney(order.total)}`, 16, CHARCOAL, " font-weight:500;")}</td></tr></table>`,
+      `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="width:100%;"><tr><td>${sans(`Delivery: ${fee}`, 14, MUTED)}</td><td style="text-align:right;">${sans(`Total ${formatMoney(order.total)}`, 16, CHARCOAL, " font-weight:500;")}</td></tr></table>`,
       "16px 48px 0",
     ),
     row(
@@ -168,26 +149,6 @@ function itemsHtml(order: Order): string {
 function tipsHtml(): string {
   const tips = TIPS.map((tip, i) => sans(`0${i + 1}&nbsp;&nbsp;&nbsp;${tip}`, 14)).join("")
   return row(`${label("CARING FOR YOUR PIECE")}${tips}`, "28px 48px 0")
-}
-
-function layout(copy: Copy, middle: string): string {
-  return `<!doctype html>
-<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width"><title>${escapeHtml(copy.subject)}</title></head>
-<body style="margin:0; padding:0; background:${LIGHT_STONE};">
-<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background:${LIGHT_STONE};"><tr><td align="center" style="padding:24px 0;">
-<table role="presentation" width="600" cellpadding="0" cellspacing="0" border="0" style="width:600px; max-width:100%; background:${STONE}; border-collapse:collapse;">
-<tr><td style="padding:40px 48px 28px; text-align:center; border-bottom:1px solid ${HAIRLINE}; font-family:${SERIF}; font-size:26px; letter-spacing:.32em; color:${CHARCOAL};">GLOWSTONE</td></tr>
-${row(sans(copy.kicker, 12, MUTED, " letter-spacing:.28em;"), "44px 48px 0")}
-${row(`<div style="font-family:${SERIF}; font-weight:300; font-size:40px; line-height:1.15; color:${CHARCOAL};">${escapeHtml(copy.title)}</div>`, "14px 48px 0")}
-${row(`<table role="presentation" cellpadding="0" cellspacing="0" border="0"><tr><td width="48" height="1" style="width:48px; height:1px; background:${WINE}; font-size:0; line-height:0;">&nbsp;</td></tr></table>`)}
-${row(sans(escapeHtml(copy.body)))}
-${middle}
-${row(`<a href="${escapeHtml(copy.button.href)}" style="display:inline-block; padding:14px 28px; background:${CHARCOAL}; color:${STONE}; font-family:${SANS}; font-size:12px; letter-spacing:.24em; text-decoration:none;">${copy.button.label} →</a>`, "32px 48px 0")}
-${row(sans(escapeHtml(copy.note), 14, MUTED), "24px 48px 40px")}
-<tr><td style="padding:40px 48px; border-top:1px solid ${HAIRLINE};">${sans(`Made in Lebanon.<br>Questions? Reply to this email or write to <a href="mailto:${CONTACT_EMAIL}" style="color:${WINE};">${CONTACT_EMAIL}</a>.`, 12, MUTED)}</td></tr>
-</table>
-</td></tr></table>
-</body></html>`
 }
 
 function itemsText(order: Order): string {
@@ -223,9 +184,9 @@ export function renderCustomerEmail(kind: CustomerEmailKind, order: Order, name:
     "",
     copy.note,
     "",
-    `Made in Lebanon. Questions? Reply to this email or write to ${CONTACT_EMAIL}.`,
+    FOOTER_TEXT,
   ].join("\n")
-  return { subject: copy.subject, html: layout(copy, middle), text }
+  return { subject: copy.subject, html: emailShell({ ...copy, middle }), text }
 }
 
 // The "new order" alert to every enabled admin: what Omar needs to make his call, and a link to the order in the studio.
@@ -241,5 +202,5 @@ export function renderNewOrderAlert(order: AdminOrder, studioUrl: string): Rende
     note: "This alert goes to every admin of the studio.",
   }
   const text = [copy.body, "", itemsText(order), "", `Open in the studio: ${copy.button.href}`].join("\n")
-  return { subject: copy.subject, html: layout(copy, itemsHtml(order)), text }
+  return { subject: copy.subject, html: emailShell({ ...copy, middle: itemsHtml(order) }), text }
 }
