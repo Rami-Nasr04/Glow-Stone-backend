@@ -1,8 +1,8 @@
-import type { PostConfirmationTriggerEvent, PreSignUpTriggerEvent } from "aws-lambda"
+import type { CustomMessageTriggerEvent, PostConfirmationTriggerEvent, PreSignUpTriggerEvent } from "aws-lambda"
 import { beforeEach, describe, expect, it, vi } from "vitest"
 import { BAD_PHONE } from "../schemas/customer.schema"
 import { syncCustomer } from "../services/customerService"
-import { preSignUp, sync } from "./customerTriggerController"
+import { customMessage, preSignUp, sync } from "./customerTriggerController"
 
 vi.mock("../services/customerService", async (importOriginal) => ({
   ...(await importOriginal<typeof import("../services/customerService")>()),
@@ -41,6 +41,48 @@ describe("sync", () => {
     vi.mocked(syncCustomer).mockRejectedValue(Object.assign(new Error("connection lost"), { detail: "sara@example.com" }))
     expect(await sync(confirmEvent)).toBe(confirmEvent)
     expect(log).toHaveBeenCalledWith("Customer row not made:", SUB, "connection lost")
+    log.mockRestore()
+  })
+})
+
+describe("customMessage", () => {
+  const messageEvent = (triggerSource: string, attributes: Record<string, string> = userAttributes) =>
+    ({
+      triggerSource,
+      request: { userAttributes: attributes, codeParameter: "{####}", usernameParameter: null },
+      response: { smsMessage: null, emailMessage: null, emailSubject: null },
+    }) as unknown as CustomMessageTriggerEvent
+
+  it.each([
+    ["CustomMessage_SignUp", "Your Glowstone sign-up code"],
+    ["CustomMessage_ResendCode", "Your Glowstone sign-up code"],
+    ["CustomMessage_ForgotPassword", "Reset your Glowstone password"],
+    ["CustomMessage_UpdateUserAttribute", "Confirm your new email"],
+    ["CustomMessage_VerifyUserAttribute", "Confirm your new email"],
+  ])("%s: the branded email with Cognito's code placeholder", async (source, subject) => {
+    const event = await customMessage(messageEvent(source))
+    expect(event.response.emailSubject).toBe(subject)
+    expect(event.response.emailMessage).toContain("{####}")
+    expect(event.response.smsMessage).toBeNull()
+  })
+
+  it("greets by the account's name", async () => {
+    const event = await customMessage(messageEvent("CustomMessage_SignUp"))
+    expect(event.response.emailMessage).toContain("Welcome, Sara.")
+  })
+
+  it("leaves other messages (an admin-made account, a sign-in code) to Cognito", async () => {
+    for (const source of ["CustomMessage_AdminCreateUser", "CustomMessage_Authentication"]) {
+      const event = messageEvent(source)
+      expect((await customMessage(event)).response).toEqual({ smsMessage: null, emailMessage: null, emailSubject: null })
+    }
+  })
+
+  it("never blocks the customer: on an error Cognito sends its own default email", async () => {
+    const log = vi.spyOn(console, "error").mockImplementation(() => {})
+    const broken = { triggerSource: "CustomMessage_SignUp", request: {}, response: { emailMessage: null, emailSubject: null } } as unknown as CustomMessageTriggerEvent
+    expect((await customMessage(broken)).response).toEqual({ emailMessage: null, emailSubject: null })
+    expect(log).toHaveBeenCalledWith("Custom message not made:", "CustomMessage_SignUp", expect.any(String))
     log.mockRestore()
   })
 })

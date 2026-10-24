@@ -195,6 +195,10 @@ functions:
     handler: src/controllers/customerTriggerController.sync
     vpc: ${self:custom.vpc}
 
+  # Custom message: the sign-up, reset and new-email code emails in Glowstone's design. No VPC (no database).
+  customerCustomMessage:
+    handler: src/controllers/customerTriggerController.customMessage
+
   getMe:
     handler: src/controllers/customerController.me
     vpc: ${self:custom.vpc}
