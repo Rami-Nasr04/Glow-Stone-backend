@@ -71,8 +71,29 @@ describe("renderCustomerEmail()", () => {
     expect(email.text).toContain("Total: $1,792.50 (cash on delivery)")
   })
 
-  it("out for delivery asks for the total in cash", () => {
-    expect(renderCustomerEmail("out_for_delivery", order, "Sara", SITE).text).toContain("Please have $1,780 ready in cash")
+  it("out for delivery asks for the total in cash and says how the courier gets in touch", () => {
+    const { text } = renderCustomerEmail("out_for_delivery", order, "Sara", SITE)
+    expect(text).toContain("Please have $1,780 ready in cash")
+    expect(text).toContain("The courier will call or WhatsApp you on +961 71 234 567 before coming.")
+  })
+
+  it("out for delivery names the recipient when someone else receives it", () => {
+    const other = { ...order, recipient: { name: "Maya Haddad", phone: "+9613123456", isAccountHolder: false } }
+    expect(renderCustomerEmail("out_for_delivery", other, "Sara", SITE).text).toContain(
+      "The courier will call or WhatsApp Maya Haddad on +961 3 123 456 before coming.",
+    )
+  })
+
+  it("gives Omar's timings: a call within 2 business days, delivery in about a week", () => {
+    expect(renderCustomerEmail("received", order, "Sara", SITE).text).toContain("Omar will call you within 2 business days to confirm it.")
+    expect(renderCustomerEmail("confirmed", order, "Sara", SITE).text).toContain("Delivery usually takes about a week.")
+  })
+
+  it.each<CustomerEmailKind>(["received", "confirmed", "out_for_delivery", "delivered", "cancelled"])("%s has no placeholder left", (kind) => {
+    for (const o of [order, { ...order, isGift: true }]) {
+      const { html, text } = renderCustomerEmail(kind, o, "Sara", SITE)
+      expect(`${html}${text}`).not.toContain("Placeholder")
+    }
   })
 
   it("delivered has the care tips and no receipt", () => {
@@ -108,7 +129,7 @@ describe("renderCustomerEmail()", () => {
     expect(text).toContain('Gift: "Happy birthday"')
   })
 
-  // The buyer pays a gift, as arranged on Omar's call; the recipient pays nothing (the shop's gift note says the same).
+  // The buyer pays a gift by Whish or OMT once Omar has called and confirmed it; the recipient pays nothing.
   describe("a gift", () => {
     const gift = { ...order, isGift: true, deliveryFee: 15.5, total: 1795.5 }
     const all = (kind: CustomerEmailKind) => {
@@ -118,11 +139,11 @@ describe("renderCustomerEmail()", () => {
 
     it.each<CustomerEmailKind>(["received", "confirmed", "out_for_delivery"])("%s never asks for cash at the door", (kind) => {
       expect(all(kind)).not.toMatch(/cash on delivery|ready in cash|Nothing is due until/)
-      expect(all(kind)).toContain("cash, arranged with Omar")
+      expect(all(kind)).toContain("Whish or OMT")
     })
 
     it("received says Omar arranges the payment with the buyer", () => {
-      expect(all("received")).toContain("Omar will call you to confirm your order and arrange the payment")
+      expect(all("received")).toContain("Omar will call you within 2 business days to confirm it. You then pay by Whish or OMT.")
       expect(all("received")).toContain("The recipient pays nothing.")
     })
 
@@ -147,7 +168,7 @@ describe("renderNewOrderAlert()", () => {
     expect(email.html).toContain("https://studio.glowstonelb.com/orders/7")
   })
 
-  it("a gift's total is paid as arranged with the buyer, as the studio says", () => {
+  it("a gift's total is paid by the buyer by Whish or OMT", () => {
     const admin: AdminOrder = {
       ...order,
       isGift: true,
@@ -156,7 +177,7 @@ describe("renderNewOrderAlert()", () => {
       canEditFee: true,
     }
     const { text } = renderNewOrderAlert(admin, "https://studio.glowstonelb.com")
-    expect(text).toContain("Total: $1,780 (cash, arranged with the buyer)")
+    expect(text).toContain("Total: $1,780 (Whish or OMT, from the buyer)")
     expect(text).not.toContain("cash on delivery")
   })
 })
