@@ -36,7 +36,7 @@ describe("renderCodeEmail()", () => {
   it.each(KINDS)("%s: has the Glowstone design and no button", (kind) => {
     const { html } = renderCodeEmail(kind, "Sara", CODE)
     expect(html).toContain("GLOW<span aria-hidden=\"true\" style=\"color:#5A2A32;\">&bull;</span>STONE")
-    expect(html).toContain("glowstone216@gmail.com")
+    expect(html).toContain("hello@glowstonelb.com")
     expect(html).not.toContain("<a href=\"http")
   })
 

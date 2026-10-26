@@ -21,7 +21,7 @@ export const WINE = "#5A2A32"
 export const HAIRLINE = "#B5B4B0"
 export const SANS = "'Jost', Helvetica, Arial, sans-serif"
 export const SERIF = "'Cormorant Garamond', Georgia, serif"
-export const CONTACT_EMAIL = "glowstone216@gmail.com"
+export const CONTACT_EMAIL = "hello@glowstonelb.com"
 
 // The name with a Wine dot between GLOW and STONE; the dot is hidden from screen readers so the name reads as one word.
 export const WORDMARK = `GLOW<span aria-hidden="true" style="color:${WINE};">&bull;</span>STONE`

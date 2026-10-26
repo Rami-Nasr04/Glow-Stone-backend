@@ -107,7 +107,7 @@ describe("renderCustomerEmail()", () => {
     const email = renderCustomerEmail(kind, order, "Sara", SITE)
     expect(email.subject).not.toBe("")
     expect(email.html.startsWith("<!doctype html>")).toBe(true)
-    expect(email.text).toContain("glowstone216@gmail.com")
+    expect(email.text).toContain("hello@glowstonelb.com")
   })
 
   it("escapes everything the customer typed", () => {

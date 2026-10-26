@@ -98,7 +98,7 @@ provider:
     CDN_URL: ${env:CDN_URL}
     # Order emails (not secrets): the sender, where replies go, and the links inside them.
     EMAIL_FROM: Glowstone <noreply@glowstonelb.com>
-    EMAIL_REPLY_TO: glowstone216@gmail.com
+    EMAIL_REPLY_TO: hello@glowstonelb.com
     SITE_URL: https://glowstonelb.com
     STUDIO_URL: https://studio.glowstonelb.com
     ORDERS_DB_FUNCTION: ${self:service}-${sls:stage}-ordersDb

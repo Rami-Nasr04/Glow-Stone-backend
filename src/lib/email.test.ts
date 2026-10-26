@@ -40,7 +40,7 @@ beforeEach(() => {
   sent.ses = []
   sent.cognito = []
   vi.stubEnv("EMAIL_FROM", "Glowstone <noreply@glowstonelb.com>")
-  vi.stubEnv("EMAIL_REPLY_TO", "glowstone216@gmail.com")
+  vi.stubEnv("EMAIL_REPLY_TO", "hello@glowstonelb.com")
   vi.stubEnv("ADMIN_USER_POOL_ID", "eu-central-1_AdminPool")
 })
 
@@ -54,7 +54,7 @@ describe("sendEmail()", () => {
     expect(sent.ses).toEqual([
       {
         FromEmailAddress: "Glowstone <noreply@glowstonelb.com>",
-        ReplyToAddresses: ["glowstone216@gmail.com"],
+        ReplyToAddresses: ["hello@glowstonelb.com"],
         Destination: { ToAddresses: ["sara@example.com"] },
         Content: {
           Simple: {
