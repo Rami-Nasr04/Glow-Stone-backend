@@ -25,6 +25,11 @@ describe("CloudFront image guard", () => {
     }
   })
 
+  // 720 is for phones: a collection card needs about 520–650 px there, and 960 was more than it needed.
+  it("serves six sizes from 480 to 2880, with 720 for phones", () => {
+    expect(IMAGE_WIDTHS).toEqual([480, 720, 960, 1440, 2048, 2880])
+  })
+
   it("uses the same rule as the resizer, built from the allowed widths", () => {
     expect(code).toContain(`const PATH = /${IMAGE_PATH.source}/`)
     expect(IMAGE_PATH.source).toContain(`(${IMAGE_WIDTHS.join("|")})`)

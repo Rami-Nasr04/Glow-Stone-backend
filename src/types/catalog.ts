@@ -1,6 +1,6 @@
 // The public products API contract. The frontend mirrors it in src/features/catalog/types.ts; change both together.
 
-// One master photo. The website asks the image CDN for a size with `${url}/<480|960|1440|2048|2880>.webp`;
+// One master photo. The website asks the image CDN for a size with `${url}/<480|720|960|1440|2048|2880>.webp`;
 // width and height are the master's, so the page can reserve the photo's shape before it loads.
 export interface ProductImage {
   url: string
