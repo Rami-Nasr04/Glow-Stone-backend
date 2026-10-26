@@ -105,12 +105,8 @@ provider:
   httpApi:
     cors:
       allowedOrigins:
-        - http://localhost:5173
-        - http://127.0.0.1:5173
-        # vite preview of the built site
-        - http://localhost:4173
-        - http://127.0.0.1:4173
-        # the shop and the studio (www and both vercel.app addresses redirect to these, so they never call the API)
+        # Only the live sites: nothing local talks to the live API (Rami, 2026-10-26). Local work uses the frontend's
+        # demo data. The shop and the studio (www and both vercel.app addresses redirect to these, so they never call the API).
         - https://glowstonelb.com
         - https://studio.glowstonelb.com
       allowedHeaders:
