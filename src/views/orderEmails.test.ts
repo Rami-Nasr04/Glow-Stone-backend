@@ -107,6 +107,30 @@ describe("renderCustomerEmail()", () => {
     expect(html).toContain("GIFT")
     expect(text).toContain('Gift: "Happy birthday"')
   })
+
+  // The buyer pays a gift, as arranged on Omar's call; the recipient pays nothing (the shop's gift note says the same).
+  describe("a gift", () => {
+    const gift = { ...order, isGift: true, deliveryFee: 15.5, total: 1795.5 }
+    const all = (kind: CustomerEmailKind) => {
+      const { html, text } = renderCustomerEmail(kind, gift, "Sara", SITE)
+      return `${html}\n${text}`
+    }
+
+    it.each<CustomerEmailKind>(["received", "confirmed", "out_for_delivery"])("%s never asks for cash at the door", (kind) => {
+      expect(all(kind)).not.toMatch(/cash on delivery|ready in cash|Nothing is due until/)
+      expect(all(kind)).toContain("cash, arranged with Omar")
+    })
+
+    it("received says Omar arranges the payment with the buyer", () => {
+      expect(all("received")).toContain("Omar will call you to confirm your order and arrange the payment")
+      expect(all("received")).toContain("The recipient pays nothing.")
+    })
+
+    it("out for delivery tells the buyer the recipient pays nothing", () => {
+      expect(all("out_for_delivery")).toContain("The recipient pays nothing at the door")
+      expect(all("out_for_delivery")).not.toContain("$1,795.50 ready")
+    })
+  })
 })
 
 describe("renderNewOrderAlert()", () => {
@@ -121,5 +145,18 @@ describe("renderNewOrderAlert()", () => {
     expect(email.subject).toBe("New order GS-0007 · Sara Khoury · $1,780")
     expect(email.text).toContain("Sara Khoury (+961 71 234 567, sara@example.com) placed an order.")
     expect(email.html).toContain("https://studio.glowstonelb.com/orders/7")
+  })
+
+  it("a gift's total is paid as arranged with the buyer, as the studio says", () => {
+    const admin: AdminOrder = {
+      ...order,
+      isGift: true,
+      customer: { id: "1b5c", email: "sara@example.com", name: "Sara Khoury", phone: "+96171234567" },
+      nextStatus: "confirmed",
+      canEditFee: true,
+    }
+    const { text } = renderNewOrderAlert(admin, "https://studio.glowstonelb.com")
+    expect(text).toContain("Total: $1,780 (cash, arranged with the buyer)")
+    expect(text).not.toContain("cash on delivery")
   })
 })

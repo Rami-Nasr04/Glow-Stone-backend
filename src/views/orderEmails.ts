@@ -54,11 +54,13 @@ function customerCopy(kind: CustomerEmailKind, order: Order, name: string, siteU
         subject: `We've received your order ${n}`,
         kicker: "ORDER RECEIVED",
         title: `Thank you, ${firstName(name)}.`,
-        body: "We've received your order. Omar will call you to confirm it [Placeholder: timeframe]. Nothing is due until your piece arrives.",
+        body: order.isGift
+          ? "We've received your order. Omar will call you to confirm your order and arrange the payment [Placeholder: timeframe]. The recipient pays nothing."
+          : "We've received your order. Omar will call you to confirm it [Placeholder: timeframe]. Nothing is due until your piece arrives.",
         showItems: true,
         showTips: false,
         button: orderPage,
-        note: "Payment is cash on delivery. Delivery is free; for far-off areas Omar may agree a delivery fee with you on his call.",
+        note: `${order.isGift ? "You pay, not the recipient: Omar will arrange the payment with you before delivery." : "Payment is cash on delivery."} Delivery is free; for far-off areas Omar may agree a delivery fee with you on his call.`,
       }
     case "confirmed":
       return {
@@ -76,7 +78,9 @@ function customerCopy(kind: CustomerEmailKind, order: Order, name: string, siteU
         subject: "Your piece is on its way",
         kicker: "OUT FOR DELIVERY",
         title: "Your piece is on its way.",
-        body: `Your order ${n} left the workshop today. Please have ${formatMoney(order.total)} ready in cash for the delivery. [Placeholder: courier contact on the day.]`,
+        body: order.isGift
+          ? `Your order ${n} left the workshop today. The recipient pays nothing at the door: the payment is as arranged on Omar's call. [Placeholder: courier contact on the day.]`
+          : `Your order ${n} left the workshop today. Please have ${formatMoney(order.total)} ready in cash for the delivery. [Placeholder: courier contact on the day.]`,
         showItems: true,
         showTips: false,
         button: orderPage,
@@ -151,14 +155,16 @@ function tipsHtml(): string {
   return row(`${label("CARING FOR YOUR PIECE")}${tips}`, "28px 48px 0")
 }
 
-function itemsText(order: Order): string {
+// A gift is paid by the buyer as arranged on Omar's call (the shop and the studio word it the same way); the rest in cash at the door.
+// who = the other side of that call: "Omar" in the customer's emails, "the buyer" in the admins' alert.
+function itemsText(order: Order, who: "Omar" | "the buyer"): string {
   const lines = order.items.map((i) => `- ${i.name} (${i.stoneType} · ${i.color}) x ${i.quantity}: ${formatMoney(i.lineTotal)}`)
   const fee = order.deliveryFee === 0 ? "Free" : formatMoney(order.deliveryFee)
   return [
     `Order ${order.number}`,
     ...lines,
     `Delivery: ${fee}`,
-    `Total: ${formatMoney(order.total)} (cash on delivery)`,
+    `Total: ${formatMoney(order.total)} (${order.isGift ? `cash, arranged with ${who}` : "cash on delivery"})`,
     "",
     "Deliver to:",
     `${order.recipient.name} · ${formatPhone(order.recipient.phone)}`,
@@ -177,7 +183,7 @@ export function renderCustomerEmail(kind: CustomerEmailKind, order: Order, name:
     copy.title,
     "",
     copy.body,
-    ...(copy.showItems ? ["", itemsText(order)] : []),
+    ...(copy.showItems ? ["", itemsText(order, "Omar")] : []),
     ...(copy.showTips ? ["", "Caring for your piece:", ...TIPS.map((t, i) => `0${i + 1} ${t}`)] : []),
     "",
     `${copy.button.label[0]}${copy.button.label.slice(1).toLowerCase()}: ${copy.button.href}`,
@@ -201,6 +207,6 @@ export function renderNewOrderAlert(order: AdminOrder, studioUrl: string): Rende
     button: { label: "OPEN IN THE STUDIO", href: `${studioUrl}/orders/${order.id}` },
     note: "This alert goes to every admin of the studio.",
   }
-  const text = [copy.body, "", itemsText(order), "", `Open in the studio: ${copy.button.href}`].join("\n")
+  const text = [copy.body, "", itemsText(order, "the buyer"), "", `Open in the studio: ${copy.button.href}`].join("\n")
   return { subject: copy.subject, html: emailShell({ ...copy, middle: itemsHtml(order) }), text }
 }
